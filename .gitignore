@@ -1,0 +1,19 @@
+# Source media & generated artifacts
+/input/
+/output/
+
+# Large model files (downloaded via setup)
+/models/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+
+# Claude Code local settings & runtime
+.claude/

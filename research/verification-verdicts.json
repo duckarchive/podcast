@@ -1,0 +1,1326 @@
+[
+  {
+    "question": "How to convert a Ukrainian-language audio podcast (WAV file) into a DaVinci Resolve timeline (XML) containing a configured mouth viseme sequence synced to the sound, covering: (1) Rhubarb Lip Sync internals, Preston Blair viseme set, output formats, and limitations/phonetic-mode workarounds for non-English (Ukrainian) audio; (2) Montreal Forced Aligner Ukrainian acoustic model + dictionary names, install/CLI workflow, TextGrid phone-level parsing, Ukrainian IPA inventory, and whether a Whisper transcript is needed; (3) phoneme-to-viseme mapping schemes (IPA/ARPAbet to Preston Blair or Oculus/Polly) with a concrete mapping table; (4) DaVinci Resolve timeline interchange formats (FCPXML vs FCP7 xmeml vs OTIO vs native .drt vs Resolve Python API) for placing many still-image mouth shapes at exact frame timecodes, with minimal XML examples and seconds-to-frame conversion at 24/25/30 fps.",
+    "summary": "Strategy: split along the four technical pillars named in the question (Rhubarb, MFA for Ukrainian, phoneme-to-viseme mapping, and Resolve XML interchange), then add a fifth angle on the seconds-to-frame timecode math and minimal XML structure for placing many image clips, since that is the load-bearing integration detail. Each query targets the specific tool names, model identifiers, and file formats to surface high-signal docs, GitHub repos, and forum threads rather than generic tutorials.",
+    "angles": [
+      {
+        "label": "Rhubarb Lip Sync internals & non-English limits",
+        "query": "Rhubarb Lip Sync Preston Blair mouth shapes phonetic recognition mode non-English audio dialog output JSON XML",
+        "rationale": "Covers focus area 1: how Rhubarb works, its viseme output set, formats, and the phonetic-vs-pocketsphinx workaround for Ukrainian audio with no language model."
+      },
+      {
+        "label": "Montreal Forced Aligner Ukrainian model & workflow",
+        "query": "Montreal Forced Aligner Ukrainian acoustic model pronunciation dictionary download mfa align TextGrid phone tier",
+        "rationale": "Covers focus area 2: exact MFA Ukrainian model/dictionary names, install + CLI align workflow, and phone-level TextGrid output (and the transcript requirement implying Whisper)."
+      },
+      {
+        "label": "Phoneme-to-viseme mapping tables",
+        "query": "phoneme to viseme mapping table IPA ARPAbet Preston Blair Oculus Amazon Polly viseme set conversion",
+        "rationale": "Covers focus area 3: concrete IPA/ARPAbet-to-viseme mapping schemes and tables across Preston Blair, Oculus, and Polly standards."
+      },
+      {
+        "label": "DaVinci Resolve timeline XML interchange formats",
+        "query": "DaVinci Resolve import FCPXML vs FCP7 xmeml vs OTIO timeline still image clips frame timecode Python API",
+        "rationale": "Covers focus area 4: which interchange format Resolve accepts for placing many still images at exact frames, comparing FCPXML/xmeml/OTIO/.drt and the scripting API."
+      },
+      {
+        "label": "FCPXML/xmeml image-clip structure & timecode math",
+        "query": "FCPXML xmeml example image clip start duration timecode frames per second 24 25 30 fps seconds to frame conversion",
+        "rationale": "Integration detail: minimal XML element structure for an image clip with exact in/out timing and the seconds-to-frame conversion math at 24/25/30 fps that ties the viseme timings to the timeline."
+      }
+    ]
+  },
+  {
+    "results": [
+      {
+        "url": "https://github.com/ChatOctopus/timeline",
+        "title": "ChatOctopus/timeline — Import/export editing timelines for FCP, Premiere, Resolve, OTIO (Python)",
+        "relevance": "high",
+        "snippet": "Python library that generates well-formed FCPXML 1.8, FCP7 XML / xmeml v5 (Premiere, Resolve), and OTIO with frame-accurate rational time math. Directly answers focus area 4: a programmatic way to emit a Resolve-importable timeline placing many clips at exact frame timecodes. Supports 'resolve' and 'otio' export targets — ideal for generating a viseme image sequence timeline from code."
+      },
+      {
+        "url": "https://wiki.dvresolve.com/developer-docs/scripting-api",
+        "title": "Scripting API | DaVinci Resolve Wiki",
+        "relevance": "high",
+        "snippet": "Documents the native Resolve Python/Lua API including MediaPool.AppendToTimeline() with clipInfo dicts (mediaPoolItem, startFrame, endFrame, recordFrame, trackIndex, mediaType). The recordFrame field positions each clip at an exact frame — the cleanest native route for dropping hundreds of still mouth-shape images at precise frames without hand-writing XML."
+      },
+      {
+        "url": "https://extremraym.com/cloud/resolve-scripting-doc/",
+        "title": "DaVinci Resolve Scripting API Documentation — X-Raym",
+        "relevance": "high",
+        "snippet": "Readable HTML rendering of Blackmagic's official scripting README. Confirms AppendToTimeline signature, recordFrame for frame-accurate placement, and how to import/add media pool items and create timelines programmatically — the recommended approach for placing many still images at computed frame positions (seconds×fps)."
+      },
+      {
+        "url": "https://scriptcut.io/blog/what-is-fcpxml",
+        "title": "What Is FCPXML? XML Interchange in Video Editing — ScriptCut",
+        "relevance": "medium",
+        "snippet": "Explains the difference between modern FCPXML and legacy FCP7 xmeml, and that FCPXML expresses timing as rational time units (e.g. frame/fps as 1001/30000s) rather than raw frame counts. Useful for understanding the seconds→timecode/time-unit conversion needed and why an app that speaks only one dialect will reject the other."
+      },
+      {
+        "url": "https://forum.blackmagicdesign.com/viewtopic.php?f=21&t=123327",
+        "title": "Blackmagic Forum — Scripting API: create timeline and add clips",
+        "relevance": "medium",
+        "snippet": "Practical thread with working Lua/Python snippets showing CreateEmptyTimeline + AppendToTimeline with clipInfo (startFrame/endFrame/recordFrame/trackIndex), including notes on positioning clips and stills at specific frames. Concrete examples for the recommended scripting workflow."
+      },
+      {
+        "url": "https://www.digitalrebellion.com/blog/posts/a_quick_note_on_the_final_cut_pro_x_xml_format",
+        "title": "A quick note on the Final Cut Pro X XML format — Digital Rebellion",
+        "relevance": "medium",
+        "snippet": "Describes xmeml/FCPXML structure (browser items, sequences, tracks, media ordering) and that in/out points in FCPXML are expressed in time units, not frames. Background for hand-authoring a Resolve-importable XML with still-image clipitems at exact times, and for choosing xmeml vs FCPXML."
+      }
+    ]
+  },
+  {
+    "results": [
+      {
+        "url": "https://mfa-models.readthedocs.io/en/latest/acoustic/Ukrainian/Ukrainian%20MFA%20acoustic%20model%20v3_0_0.html",
+        "title": "Ukrainian MFA acoustic model v3.0.0 — official MFA models docs",
+        "relevance": "high",
+        "snippet": "The exact named Ukrainian acoustic model. Download via `mfa model download acoustic ukrainian_mfa`. Trained on the MFA IPA phone set with the Ukrainian pronunciation dictionaries; intended for forced alignment of Ukrainian transcripts across speakers/recording conditions. Confirms the precise model name needed for the align command in focus area 2."
+      },
+      {
+        "url": "https://mfa-models.readthedocs.io/en/latest/dictionary/Ukrainian/Ukrainian%20MFA%20dictionary%20v2_0_0a.html",
+        "title": "Ukrainian MFA dictionary v2.0.0a — official MFA models docs",
+        "relevance": "high",
+        "snippet": "The matching pronunciation dictionary, downloaded with `mfa model download dictionary ukrainian_mfa`. Uses the Ukrainian MFA phone set and was used to train the acoustic model. The phone set in the dictionary must match the acoustic model — directly answers dictionary availability and exact name."
+      },
+      {
+        "url": "https://mfa-models.readthedocs.io/en/latest/mfa_phone_set.html",
+        "title": "MFA IPA phone set — mfa model docs",
+        "relevance": "high",
+        "snippet": "Documents MFA's opinionated IPA phone set used in the Ukrainian models. This is the exact phoneme inventory that appears on the phone tier of the output TextGrid, which is the input needed for the IPA-to-viseme mapping step (focus area 3)."
+      },
+      {
+        "url": "https://mfa-models.readthedocs.io/en/latest/g2p/Ukrainian/Ukrainian%20MFA%20G2P%20model%20v3_0_0.html",
+        "title": "Ukrainian MFA G2P model v3.0.0 — official MFA models docs",
+        "relevance": "high",
+        "snippet": "`ukrainian_mfa` G2P model (download with `mfa model download g2p ukrainian_mfa`). Generates pronunciations for out-of-vocabulary words via `mfa g2p`, so a Whisper transcript with words not in the dictionary can still be aligned — needed because MFA requires a transcript and dictionary coverage."
+      },
+      {
+        "url": "https://montreal-forced-aligner.readthedocs.io/en/latest/first_steps/index.html",
+        "title": "First steps — Montreal Forced Aligner 3.X documentation",
+        "relevance": "high",
+        "snippet": "Install (conda: `conda create -n aligner -c conda-forge montreal-forced-aligner`), model download commands, and the core `mfa align corpus_dir dictionary acoustic_model output_dir` workflow that produces phone-level TextGrids. Confirms a transcript per audio file is mandatory (hence Whisper for the Ukrainian podcast)."
+      },
+      {
+        "url": "https://eleanorchodroff.com/tutorial/montreal-forced-aligner.html",
+        "title": "Montreal Forced Aligner — Corpus Phonetics Tutorial (Eleanor Chodroff)",
+        "relevance": "medium",
+        "snippet": "Practical end-to-end MFA tutorial: corpus layout (paired .wav + .lab/.txt transcripts), download/validate/align commands, and opening the resulting .TextGrid in Praat to read the phone tier. Useful concrete reference for parsing phone-level TextGrid output with start/end times per phone."
+      }
+    ]
+  },
+  {
+    "results": [
+      {
+        "url": "https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc",
+        "title": "Rhubarb Lip Sync — Official README (DanielSWolf/rhubarb-lip-sync)",
+        "relevance": "high",
+        "snippet": "Authoritative source for focus area 1. Documents the --recognizer option (pocketSphinx for English vs phonetic for non-English/Ukrainian audio), the phonetic recognizer being language-independent (recognizes individual sounds/syllables, not English words), the --dialogFile option, output formats (TSV/XML/JSON via --exportFormat), and the 6 basic (A-F) plus 3 extended (G,H,X) Preston Blair-derived mouth shapes. This is the core reference for how Rhubarb works and the phonetic workaround for Ukrainian."
+      },
+      {
+        "url": "https://github.com/DanielSWolf/rhubarb-lip-sync",
+        "title": "GitHub - DanielSWolf/rhubarb-lip-sync (main repo)",
+        "relevance": "high",
+        "snippet": "Project home page. Confirms Rhubarb is a CLI tool generating 2D mouth animation from voice; six basic mouth shapes (originating from Hanna-Barbera/Preston Blair tradition) plus up to three extended shapes; CLI can output TSV/XML/JSON. States v1.x officially supports English dialog but v1.9 added basic non-English recording support via the phonetic recognizer — directly answers the Ukrainian non-English limitation question."
+      },
+      {
+        "url": "https://github.com/DanielSWolf/rhubarb-lip-sync/issues/95",
+        "title": "Plans for Rhubarb Lip Sync 2 — Issue #95",
+        "relevance": "high",
+        "snippet": "Maintainer's roadmap explaining the language limitation explicitly: Rhubarb 1.x only supports English dialog because pocketSphinx uses an English acoustic/language model, while Rhubarb 2's architecture will be language-agnostic. Useful context for why Ukrainian audio must rely on the phonetic recognizer and what its quality tradeoffs are."
+      },
+      {
+        "url": "https://www.garycmartin.com/mouth_shapes.html",
+        "title": "Preston Blair phoneme series — Gary C. Martin CGI",
+        "relevance": "medium",
+        "snippet": "The canonical Preston Blair mouth-shape reference that Rhubarb's A-F/G-H-X viseme set is based on, including the extended phoneme series. Helps map Rhubarb's letter-coded visemes to actual mouth drawings/still images needed for the DaVinci Resolve timeline, bridging focus areas 1 and 3."
+      },
+      {
+        "url": "https://cmusphinx.github.io/wiki/phonemerecognition/",
+        "title": "Phoneme Recognition (caveat emptor) — CMUSphinx",
+        "relevance": "medium",
+        "snippet": "Explains the internals and limitations of PocketSphinx phoneme recognition that Rhubarb's phonetic recognizer relies on: needs a phonetic language model per phoneset, default models are US-English-only and won't work for native languages like Ukrainian, and pure phoneme recognition is error-prone. Clarifies why Rhubarb's phonetic mode is approximate for Ukrainian and motivates the Montreal Forced Aligner alternative."
+      },
+      {
+        "url": "https://cmusphinx.github.io/wiki/tutorialbeforestart/",
+        "title": "Before you start — CMUSphinx Open Source Speech Recognition",
+        "relevance": "low",
+        "snippet": "Background on the speech engine underlying Rhubarb's pocketSphinx recognizer; notes the default model is US/Canadian English and will not work for non-English languages without custom acoustic/language models, reinforcing the Ukrainian limitation and the need for the phonetic recognizer or an external aligner."
+      }
+    ]
+  },
+  {
+    "results": [
+      {
+        "url": "https://docs.aws.amazon.com/polly/latest/dg/viseme.html",
+        "title": "Visemes and Amazon Polly (AWS Polly Developer Guide)",
+        "relevance": "high",
+        "snippet": "Authoritative, complete mapping of IPA phonemes and X-SAMPA symbols to Polly's viseme set per language. Polly visemes (p, t, S, T, f, k, i, r, s, u, @, a, e, E, o, O, sil) are a well-documented, code-friendly target set. Directly usable as the phoneme-to-viseme layer for focus area 3, with per-language tables (incl. non-English) linked from here."
+      },
+      {
+        "url": "https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html",
+        "title": "Phoneme and Viseme Tables for Supported Languages: English (US) - Amazon Polly",
+        "relevance": "high",
+        "snippet": "Concrete three-column table (IPA phoneme, X-SAMPA symbol, corresponding viseme) with example words. This is the canonical lookup table format the question asks for; the parent 'Phoneme and Viseme Tables for Supported Languages' page links other languages, useful for mapping MFA/IPA Ukrainian phones to a standard viseme set."
+      },
+      {
+        "url": "https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/",
+        "title": "Viseme Reference - Oculus/Meta OVR LipSync",
+        "relevance": "high",
+        "snippet": "Defines the canonical 15-viseme Oculus set (sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou) with reference mouth-shape images and the phoneme groups each viseme covers (e.g. /b,p,m/ to PP). Language-agnostic by design, making it the best-documented target set for mapping Ukrainian IPA phones to mouth shapes."
+      },
+      {
+        "url": "https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc",
+        "title": "Rhubarb Lip Sync README (Preston Blair mouth shapes A-H, X)",
+        "relevance": "high",
+        "snippet": "Defines Rhubarb's Preston Blair-based output set: six basic shapes A-F plus optional extended G, H, and X (rest/pause), with descriptions of which sounds map to each shape. Establishes the Preston Blair target vocabulary that an IPA/ARPAbet-to-viseme table must map into for a Resolve still-image mouth sequence."
+      },
+      {
+        "url": "https://arxiv.org/pdf/1805.02934",
+        "title": "Phoneme-to-viseme mappings: the good, the bad, and the ugly (arXiv)",
+        "relevance": "medium",
+        "snippet": "Academic survey comparing many published phoneme-to-viseme mapping schemes (Jeffers, Lee, Fisher, Disney/Hazen, etc.), explaining many-to-one phoneme clustering and which groupings work best. Useful for justifying a custom IPA-to-viseme collapse and understanding why viseme counts differ (9 vs 15 vs 20+)."
+      },
+      {
+        "url": "https://wiki.vrchat.com/wiki/Visemes",
+        "title": "Visemes - VRChat Wiki",
+        "relevance": "medium",
+        "snippet": "Practical cross-reference of the 15-viseme Oculus set as used in production avatars, with phoneme examples per viseme and notes on collapsing to fewer shapes. Helpful as a second, accessible source for the Oculus mapping when building a concrete IPA-to-mouth-shape table."
+      }
+    ]
+  },
+  {
+    "results": [
+      {
+        "url": "https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/FinalCutPro_XML/Elements/Elements.html",
+        "title": "Final Cut Pro 7 XML Interchange Format (xmeml) - Element Reference (Apple)",
+        "relevance": "high",
+        "snippet": "Authoritative xmeml element reference. Defines exactly the elements needed to place many still-image mouth shapes: <clipitem> with <in>/<out> (source media trim) vs <start>/<end> (placement in the enclosing <sequence>), <duration>, <file> with <pathurl> (must start with file://localhost or file:///), <rate>(<timebase>/<ntsc>), and <samplecharacteristics> width/height for stills. All timing values here are integer FRAME counts, so seconds->frame is simply round(seconds * fps) at 24/25/30 fps — the core conversion that ties viseme timings to the timeline. xmeml is well supported by DaVinci Resolve import."
+      },
+      {
+        "url": "https://fcp.cafe/developer-case-studies/fcpxml/",
+        "title": "Demystifying Final Cut Pro XMLs (fcp.cafe)",
+        "relevance": "high",
+        "snippet": "Best practical explainer of modern FCPXML timing. Explains that start/offset/duration are RATIONAL seconds (64-bit numerator / 32-bit denominator), e.g. 30030/24000s, and that the <format> frameDuration encodes fps: 1001/24000s (23.976), 1/24s, 100/2500s (25 PAL), 1001/30000s (29.97). To place a viseme image at a frame boundary you must emit time as frame*frameDuration (numerator = frame_index*frameDuration_num) or Resolve throws 'item is not on an edit frame boundary'. Covers tcFormat DF/NDF and why rationals beat decimals for frame accuracy. Directly drives the seconds->frame math for both 24/25/30 fps."
+      },
+      {
+        "url": "https://github.com/andrewarrow/cutlass",
+        "title": "cutlass - swiss army knife for generating FCPXML files (GitHub)",
+        "relevance": "high",
+        "snippet": "Working code reference for programmatically generating FCPXML with images placed at exact frames - essentially the target output of the viseme pipeline. Shows how to build asset/asset-clip/video elements, compute rational start/duration on frame boundaries, and produce a file importable into Resolve/FCP. Good template for emitting one image clip per viseme at its computed frame offset."
+      },
+      {
+        "url": "https://pypi.org/project/steele-fcpxml/0.1.1/",
+        "title": "steele-fcpxml - Python library to assemble FCPXML timelines (PyPI)",
+        "relevance": "high",
+        "snippet": "Python library that builds an FCPXML timeline from a list of source clips with in/out points, gaps and markers, producing an .fcpxml importable directly into DaVinci Resolve with every clip pre-positioned at the correct timecode. Practical recommended path for the Python stage of the pipeline: feed it the per-viseme image filenames and frame-converted in/out times rather than hand-writing XML. Confirms FCPXML (not native .drt) as the pragmatic interchange format for scripted image placement."
+      },
+      {
+        "url": "https://github.com/ccnmtl/xmeml/blob/master/examples/Mark%20P%20XML.xml",
+        "title": "ccnmtl/xmeml - concrete example XML file (GitHub)",
+        "relevance": "medium",
+        "snippet": "A real, complete xmeml document you can copy as a minimal template: shows the full nesting of sequence > media > video > track > clipitem with file/pathurl, rate (timebase 30 / ntsc), and integer in/out/start/end/duration. Useful as a ground-truth skeleton when emitting hundreds of still-image clipitems at sequential frame timecodes."
+      },
+      {
+        "url": "https://wildlion.media/davinci-resolve-python-scripting-the-complete-guide-to-the-api/",
+        "title": "DaVinci Resolve Python Scripting - The Complete Guide to the API (Wild Lion Media, 2026)",
+        "relevance": "medium",
+        "snippet": "Up-to-date (2026) reference for the alternative to XML interchange: Resolve's native Python API. Covers MediaPool clip append with frame-accurate control, ImportTimelineFromFile() for FCPXML conform, and timeline operations. Relevant for the format recommendation section (FCPXML vs Resolve scripting API) when deciding whether to generate XML or drive Resolve directly to position viseme stills."
+      }
+    ]
+  },
+  {
+    "claims": [
+      {
+        "claim": "FCPXML is Apple's XML interchange format (.fcpxml) for Final Cut Pro that describes clips, projects, timelines, and metadata, allowing apps to exchange edits with Final Cut Pro.",
+        "quote": "Apple's XML interchange format for Final Cut Pro: a structured text file (.fcpxml) that describes clips, projects, timelines, and metadata so apps can exchange edits with Final Cut Pro.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "FCPXML encodes timeline structure including clips, their source media, order and timing on the timeline, multiple video/audio lanes, transitions, effects, and markers.",
+        "quote": "the structure of a project: the clips and their source media, the order and timing on the timeline, multiple video and audio lanes, transitions and effects, markers, keywords, ratings, and metadata.",
+        "importance": "central"
+      },
+      {
+        "claim": "DaVinci Resolve and Premiere Pro primarily read and write the legacy Final Cut Pro 7 XML (xmeml) format rather than the modern .fcpxml format, whose support varies.",
+        "quote": "Premiere Pro and DaVinci Resolve have long read and written this older XML",
+        "importance": "central"
+      },
+      {
+        "claim": "Modern .fcpxml and legacy FCP7 xmeml are incompatible formats; sending modern .fcpxml to legacy-only applications will fail.",
+        "quote": "These are incompatible—sending modern .fcpxml to legacy-only applications will fail.",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2026-06-09",
+    "sourceQuality": "blog"
+  },
+  {
+    "claims": [
+      {
+        "claim": "FCPXML expresses timing such as in/out points in time units (rational time, e.g. fractions of a second) rather than the frame units used by the legacy FCP7 XMEML format.",
+        "quote": "Timing information such as in and out points are expressed in time units rather than frame units",
+        "importance": "central"
+      },
+      {
+        "claim": "FCPXML and FCP7 XMEML are structurally incompatible formats and cannot be directly imported into the other application.",
+        "quote": "there is no way to directly import FCP 7 XMEML into Final Cut Pro X or vice versa",
+        "importance": "central"
+      },
+      {
+        "claim": "FCPXML organizes data with resources first and a single sequence containing storylines/clips in a parent-child relationship rather than the chronological browser/sequence/track structure of XMEML.",
+        "quote": "Clips use parent-child relationship rather than chronological order",
+        "importance": "supporting"
+      },
+      {
+        "claim": "DaVinci Resolve supports both FCPXML and XMEML, but features that do not exist in the other application will not translate during round-trip interchange.",
+        "quote": "Some features will not translate back and forth because they don't exist in the other application.",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2011-09-20",
+    "sourceQuality": "blog"
+  },
+  {
+    "claims": [
+      {
+        "claim": "The Ukrainian MFA acoustic model v3.0.0 is installed via the command 'mfa model download acoustic ukrainian_mfa', confirming the exact model name 'ukrainian_mfa'.",
+        "quote": "mfa model download acoustic ukrainian_mfa",
+        "importance": "central"
+      },
+      {
+        "claim": "The Ukrainian MFA acoustic model pairs with the 'Ukrainian MFA dictionary v3.0.0' pronunciation dictionary and uses the MFA phone set.",
+        "quote": "\"Ukrainian MFA dictionary v3.0.0\" pairs with this acoustic model.",
+        "importance": "central"
+      },
+      {
+        "claim": "The model is a GMM-HMM architecture using MFCC features, trained on 2024-03-21 and compatible with MFA v3.0.0.",
+        "quote": "\"gmm-hmm\" architecture using \"MFCC\" features",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The model was trained on ~192 hours of Ukrainian speech across three corpora: Common Voice Ukrainian v16.1 (94.80 hours), M-AILABS Ukrainian (83.22 hours), and GlobalPhone Ukrainian v3.1 (14.11 hours).",
+        "quote": "Common Voice Ukrainian v16.1 (94.80 hours, 1,026 speakers, 73,099 utterances)",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The model is intended for forced alignment of Ukrainian transcripts, implying a transcript is required as input (e.g. produced by Whisper).",
+        "quote": "\"This model is intended for forced alignment of Ukrainian transcripts.\"",
+        "importance": "central"
+      }
+    ],
+    "publishDate": "2024-03-21",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "The DaVinci Resolve Python scripting API can place clips at exact timeline frame positions via the dictionary form of AppendToTimeline, which accepts 'startFrame', 'endFrame', 'recordFrame' (timeline placement position), 'mediaType', and 'trackIndex' keys.",
+        "quote": "AppendToTimeline([{clipInfo, ...}]) accepting \"mediaPoolItem\", \"startFrame\" (int), \"endFrame\" (int), optional \"mediaType\" and \"trackIndex\"",
+        "importance": "central"
+      },
+      {
+        "claim": "AppendToTimeline appends MediaPoolItem objects to the current timeline and returns the list of appended timelineItems, enabling programmatic placement of many still-image mouth-shape clips.",
+        "quote": "Appends specified MediaPoolItem objects in the current timeline. Returns the list of appended timelineItems",
+        "importance": "central"
+      },
+      {
+        "claim": "Resolve can import a timeline from an external interchange file via ImportTimelineFromFile, supporting AAF, EDL, XML, FCPXML, DRT, and ADL formats (including FCPXML 1.8/1.9/1.10).",
+        "quote": "ImportTimelineFromFile(filePath, {importOptions}) - \"Creates timeline based on parameters within given file (AAF/EDL/XML/FCPXML/DRT/ADL)\"",
+        "importance": "central"
+      },
+      {
+        "claim": "Timeline frame rate (which governs seconds-to-frame timecode conversion) is read/set via GetSetting('timelineFrameRate') and SetSetting('timelineFrameRate', x), with drop-frame configurable by appending 'DF'.",
+        "quote": "GetSetting('timelineFrameRate') and SetSetting('timelineFrameRate', x) - \"The property value is one of the frame rates available...Drop Frame can be configured by appending 'DF'\"",
+        "importance": "supporting"
+      },
+      {
+        "claim": "An empty timeline can be created programmatically with CreateEmptyTimeline(name), and timelines can be built directly from positioned clips with CreateTimelineFromClips(name, [{clipInfo}]).",
+        "quote": "CreateEmptyTimeline(name) - \"Adds new timeline with given name\" ... CreateTimelineFromClips(name, [{clipInfo}])",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2023-07-18",
+    "sourceQuality": "secondary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "The Resolve Python API's AppendToTimeline accepts a list of clipInfo dicts where each clip specifies mediaPoolItem, startFrame, endFrame, optional mediaType (1=video, 2=audio), trackIndex, and recordFrame — allowing a still-image mouth shape to be placed at an exact frame position on the timeline.",
+        "quote": "AppendToTimeline([{clipInfo}, ...]) ... Accepts dict with mediaPoolItem, startFrame (float/int), endFrame (float/int), optional mediaType (1=video only, 2=audio only), trackIndex (int), and recordFrame (float/int).",
+        "importance": "central"
+      },
+      {
+        "claim": "The Resolve API can import timelines from external interchange files via ImportTimelineFromFile, which supports AAF, EDL, XML, FCPXML, DRT, ADL, and OTIO formats.",
+        "quote": "ImportTimelineFromFile(filePath, {importOptions}) ... Supports AAF/EDL/XML/FCPXML/DRT/ADL/OTIO formats with optional parameters: timelineName, importSourceClips, sourceClipsPath, sourceClipsFolders, interlaceProcessing.",
+        "importance": "central"
+      },
+      {
+        "claim": "The Resolve Timeline Export method supports multiple interchange export types including EXPORT_FCP_7_XML, EXPORT_FCPXML_1_8/1_9/1_10, EXPORT_OTIO, and EXPORT_DRT.",
+        "quote": "Export(fileName, exportType, exportSubtype) ... Supports: EXPORT_AAF, EXPORT_EDL, EXPORT_FCP_7_XML, EXPORT_FCPXML_1_8/1_9/1_10, EXPORT_OTIO, EXPORT_DRT, EXPORT_ALE, EXPORT_DOLBY_VISION_VER_2_9/4_0/5_1.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Timeline frame rate is set via the project setting timelineFrameRate, which accepts fractional and drop-frame values such as '23.976' and '29.97 DF', relevant to seconds-to-frame timecode conversion at 24/25/30 fps.",
+        "quote": "Project:SetSetting('timelineFrameRate', x) Value examples: \"29.97 DF\" (drop frame), \"23.976\" (fractional).",
+        "importance": "supporting"
+      },
+      {
+        "claim": "CreateTimelineFromClips builds a new timeline from a list of clipInfo dicts each carrying mediaPoolItem, startFrame, endFrame, and recordFrame, enabling programmatic construction of a full viseme image sequence at exact frames.",
+        "quote": "CreateTimelineFromClips(name, [{clipInfo}]) ... Creates timeline appending clips specified as dict: mediaPoolItem, startFrame, endFrame, recordFrame.",
+        "importance": "central"
+      }
+    ],
+    "publishDate": "2026-05-08",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "The @chatoctopus/timeline library exports DaVinci Resolve-compatible timelines via the 'resolve' editor target, which emits FCP7 XML / xmeml v5 format (exportTimeline(timeline, \"resolve\")), confirming xmeml v5 as a valid Resolve import interchange format.",
+        "quote": "Generates well-formed FCPXML 1.8 (Final Cut Pro), FCP7 XML / xmeml v5 (Premiere, Resolve), and OTIO (OpenTimelineIO) with frame-accurate rational time math -- no floating-point drift.",
+        "importance": "central"
+      },
+      {
+        "claim": "To place media items at exact frame positions without floating-point drift, the model represents all timing as rational numbers {num, den}; e.g. starting from frame 300 at 29.97 fps is encoded as startTime: rational(300 * 1001, 30000), and 150 frames duration as rational(150 * 1001, 30000).",
+        "quote": "startTime: rational(300 * 1001, 30000), // start from frame 300 in source\n            duration: rational(150 * 1001, 30000), // 150 frames = ~5 seconds",
+        "importance": "central"
+      },
+      {
+        "claim": "Still images placed on a timeline require an explicit duration (they have no intrinsic length), which is directly relevant to placing many still-image mouth-shape clips at timed positions.",
+        "quote": "still images require an explicit `duration`, and mixed-frame-rate trims may be rejected when they cannot be represented consistently",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The library provides seconds-to-frame and timecode conversion utilities: secondsToFrameAligned(secs, frameRate) snaps seconds to the nearest frame boundary, toFrames(duration, frameDuration) converts to a frame count, and parseTimecode(tc, frameRate) parses SMPTE timecode including drop-frame support.",
+        "quote": "`secondsToFrameAligned(secs, frameRate)` | Convert seconds, snapped to nearest frame boundary ... `parseTimecode(tc, frameRate)` | Parse SMPTE timecode (`\"01:00:00;00\"`) with drop-frame support",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Current FCPXML and xmeml (Resolve) exports flatten transitions into butt cuts and do not emit native transition elements, and may drop transitions, markers, and metadata when exporting (a lossy-export limitation), though this is largely irrelevant for placing static mouth-shape stills.",
+        "quote": "current FCPXML and xmeml exports flatten transitions into butt cuts and warn because those adapters do not yet emit native transition elements",
+        "importance": "tangential"
+      }
+    ],
+    "publishDate": "2026-03-06 (repository created; last pushed 2026-06-10)",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "The Ukrainian MFA pronunciation dictionary v2.0.0a can be installed via the MFA command line with the exact command 'mfa model download dictionary ukrainian_mfa'.",
+        "quote": "mfa model download dictionary ukrainian_mfa",
+        "importance": "central"
+      },
+      {
+        "claim": "The Ukrainian MFA dictionary v2.0.0a uses an IPA-based MFA phone set whose full inventory includes (among ~80 phones): b bʲ c dzʲ dʒ d̪ e f i j k l m n̪ o p sʲ s̪ tsʲ tʃ tʲ t̪ u x zʲ z̪ ç ɐ ɑ ɔ ɛ ɡ ɦ ɪ ɲ ɾ ʃ ʊ ʋ ʎ ʒ ʝ, with palatalized (ʲ) and long (ː) variants.",
+        "quote": "b bʲ bʲː bː c cː dzʲ dʒ dʲ dʲː d̪ d̪z̪ d̪z̪ː d̪ː e f fʲ i j k kː l lː m mʲ mʲː n̪ n̪ː o p pʲ pʲː sʲ sʲː s̪ s̪ː tsʲ tsʲː tʃ tʃʲ tʃʲː tʃː tʲ tʲː t̪ t̪s̪ t̪s̪ː t̪ː u x zʲ zʲː z̪ z̪ː ç ɐ ɑ ɔ ɛ ɡ ɡː ɦ ɦː ɪ ɲ ɲː ɾ ɾʲ ɾʲː ɾː ʃ ʃʲ ʃʲː ʊ ʋ ʋʲ ʋʲː ʋː ʎ ʎː ʒ ʒʲ ʒʲː ʝ",
+        "importance": "central"
+      },
+      {
+        "claim": "The Ukrainian MFA dictionary v2.0.0a contains 64,014 words.",
+        "quote": "64,014",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The Ukrainian MFA dictionary v2.0.0a is licensed under CC BY 4.0 and is paired with the 'Ukrainian MFA acoustic model v2.0.0a'.",
+        "quote": "CC BY 4.0",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The dictionary distributed via the release page and CLI has pronunciation and silence probabilities estimated during acoustic model training.",
+        "quote": "The dictionary available from the release page and command line installation has pronunciation and silence probabilities estimated as part acoustic model training.",
+        "importance": "tangential"
+      }
+    ],
+    "publishDate": "2022-05",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "MFA requires a corpus of paired sound files and transcription files with matching names (transcript is required for forced alignment).",
+        "quote": "pairs of sound files and transcription files with the same name (except for the extension)",
+        "importance": "central"
+      },
+      {
+        "claim": "MFA acoustic models, pronunciation dictionaries, and G2P models are downloaded via 'mfa model download' commands (e.g. 'mfa model download acoustic english_us_arpa', 'mfa model download dictionary english_us_arpa', 'mfa model download g2p english_us_arpa').",
+        "quote": "mfa model download acoustic english_us_arpa\nmfa model download dictionary english_us_arpa\nmfa model download g2p english_us_arpa",
+        "importance": "central"
+      },
+      {
+        "claim": "The alignment CLI takes the corpus directory, dictionary, acoustic model, and an output directory, e.g. 'mfa align ~/mfa_data/my_corpus english_us_arpa english_us_arpa ~/mfa_data/my_corpus_aligned'.",
+        "quote": "mfa align ~/mfa_data/my_corpus english_us_arpa english_us_arpa ~/mfa_data/my_corpus_aligned",
+        "importance": "central"
+      },
+      {
+        "claim": "MFA outputs TextGrid files containing aligned words and phones in the output directory.",
+        "quote": "TextGrid files containing aligned words and phones are generated in the output directory",
+        "importance": "supporting"
+      },
+      {
+        "claim": "MFA provides a G2P (grapheme-to-phoneme) capability to generate pronunciations for out-of-vocabulary items, usable when a dictionary lacks a word.",
+        "quote": "G2P (Grapheme-to-Phoneme) models can generate pronunciations for out-of-vocabulary items",
+        "importance": "supporting"
+      }
+    ],
+    "sourceQuality": "primary",
+    "publishDate": ""
+  },
+  {
+    "claims": [
+      {
+        "claim": "There is an official Ukrainian G2P model named 'ukrainian_mfa' (Ukrainian MFA G2P model v3.0.0), installable via the CLI command `mfa model download g2p ukrainian_mfa`, which generates pronunciations from Ukrainian text.",
+        "quote": "Users can install via CLI with: `mfa model download g2p ukrainian_mfa`",
+        "importance": "central"
+      },
+      {
+        "claim": "The Ukrainian MFA G2P model uses the MFA Ukrainian phone set with a phone inventory of 87 phones and 34 graphemes, and was trained from the Ukrainian MFA pronunciation dictionaries.",
+        "quote": "uses the MFA phone set for Ukrainian, and was trained from the pronunciation dictionaries",
+        "importance": "central"
+      },
+      {
+        "claim": "The model was trained on 58,496 words from the Ukrainian MFA dictionary v3.0.0, linking the G2P model to a companion Ukrainian pronunciation dictionary resource.",
+        "quote": "Training Corpus: 58,496 words from the Ukrainian MFA dictionary v3.0.0",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The Ukrainian MFA G2P model v3.0.0 was released on March 21, 2024, is compatible with MFA version v3.0.0, uses a Phonetisaurus architecture, and is licensed CC BY 4.0.",
+        "quote": "Release Date: March 21, 2024 ... Architecture: Phonetisaurus ... Compatible MFA Version: v3.0.0 ... License: CC BY 4.0",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2024-03-21",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "MFA provides Ukrainian-specific phone set entries, confirming Ukrainian is a supported/trained language in the MFA model ecosystem alongside Russian, Polish, and others.",
+        "quote": "Covered languages include Arabic, Bulgarian, English (multiple dialects), Hausa, Japanese, Korean, Mandarin, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Thai, Turkish, Ukrainian, and Vietnamese.",
+        "importance": "central"
+      },
+      {
+        "claim": "Ukrainian palatalized velar and alveolar consonants are mapped to palatal consonants in the MFA IPA phone set: kʲ→c, ɦʲ→ç, xʲ→ʝ, nʲ→ɲ, lʲ→ʎ, defining the exact phone symbols a parser will encounter in Ukrainian TextGrid output.",
+        "quote": "Velar and alveolar soft consonants represented as palatal (kʲ→c, ɦʲ→ç, xʲ→ʝ, nʲ→ɲ, lʲ→ʎ).",
+        "importance": "central"
+      },
+      {
+        "claim": "Ukrainian alveolar consonants are represented as dental in the MFA phone set except when palatalized, using symbols such as t̪ s̪ t̪s̪ d̪ z̪ d̪z̪ n̪.",
+        "quote": "Alveolar consonants are dental except when palatalized: \"t̪ s̪ t̪s̪ d̪ z̪ d̪z̪ n̪\"",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The MFA IPA phone set uses a fixed diacritic ordering — (prenasalization) symbol (secondary place) (glottal settings) (length) — which is needed to correctly tokenize multi-character IPA phones when mapping phonemes to visemes.",
+        "quote": "The system follows a specific sequence: (prenasalization) symbol (secondary place) (glottal settings) (length). Examples include pʰː, pʷʼ, and pʲ̚.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "MFA acoustic models are built on this shared IPA phone set as their phonetic foundation, so phone-level TextGrid alignments output IPA symbols rather than ARPAbet.",
+        "quote": "The acoustic models rely on this IPA phone set as their phonetic foundation.",
+        "importance": "supporting"
+      }
+    ],
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "Rhubarb Lip Sync outputs a Preston Blair-based viseme set of six basic mouth shapes (A-F) plus three optional extended shapes (G, H, X), where A=closed for P/B/M, B=clenched teeth/EE, C=open EH/AE, D=wide open AA, E=rounded AO/ER, F=puckered UW/OW/W, G=teeth-on-lip F/V, H=L, X=idle/rest.",
+        "quote": "Ⓐ: Closed mouth for \"P\", \"B\", \"M\" sounds ... Ⓖ: Upper teeth touching the lower lip for 'F' and 'V' (optional) ... Ⓧ: Idle/rest position for pauses (optional)",
+        "importance": "central"
+      },
+      {
+        "claim": "Rhubarb's default English recognizer (PocketSphinx) only recognizes English dialog, so for Ukrainian or other non-English audio one must use the Phonetic recognizer, which is language-independent but usually less precise.",
+        "quote": "PocketSphinx ... only recognizes English dialog. ... use the Phonetic recognizer, which is language-independent but usually less precise.",
+        "importance": "central"
+      },
+      {
+        "claim": "Rhubarb supports multiple output formats including TSV, XML, JSON, and DAT (for Moho/OpenToonz), enabling programmatic parsing of timed mouth-shape data.",
+        "quote": "TSV (tab-separated values), XML, JSON, and DAT formats for Moho/OpenToonz compatibility.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Rhubarb accepts WAVE (.wav) and Ogg Vorbis (.ogg) audio input formats.",
+        "quote": "Supported formats are \"WAVE (.wav) and Ogg Vorbis (.ogg).\"",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Rhubarb can take an optional plain-text dialog/transcript file to improve recognition accuracy.",
+        "quote": "specify the path to a plain-text file...containing the dialog contained in the audio file",
+        "importance": "supporting"
+      }
+    ],
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "MFA is installed via conda with the command 'conda create -n aligner -c conda-forge montreal-forced-aligner', and run by activating the environment ('conda activate aligner').",
+        "quote": "conda create -n aligner -c conda-forge montreal-forced-aligner",
+        "importance": "central"
+      },
+      {
+        "claim": "MFA requires paired audio and transcript files where the wav filename and its transcript filename must be identical except for the extension; transcripts may be Praat TextGrid, .lab, or .txt files.",
+        "quote": "The filename of the wav file and its corresponding transcript must be identical except for the extension.",
+        "importance": "central"
+      },
+      {
+        "claim": "MFA produces aligned TextGrids in the output folder containing both phone-level and word-level timing information; the input corpus needs separate input and output folders, with the output folder empty before running.",
+        "quote": "Aligned TextGrids are placed in the specified output folder with phone and word-level timing information.",
+        "importance": "central"
+      },
+      {
+        "claim": "Pretrained MFA acoustic models and pronunciation dictionaries exist for multiple languages, retrievable via 'mfa model download' and listed in the MFA models master list (mfa-models.readthedocs.io); the phone set in the dictionary must match the acoustic model.",
+        "quote": "The phone set in your dictionary must match that used in the acoustic models and the orthography must match that in the transcripts.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "MFA can generate pronunciation dictionaries from text using G2P (grapheme-to-phoneme) models via 'mfa g2p', and the pronunciation dictionary must be a two-column tab-separated text file (word, then space-separated phones).",
+        "quote": "The pronunciation dictionary must be a two column text file",
+        "importance": "supporting"
+      }
+    ],
+    "sourceQuality": "secondary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "In the DaVinci Resolve Python scripting API, clips are added to a timeline using the AppendToTimeline() method, and clips are appended in the order they are supplied (one at a time, as a list, or as a Python dictionary).",
+        "quote": "You're probably using AppendToTimeline() to cut the clips into the timeline. The clips are appended in the order you supply them. This can be one at a time, it can be a list of clips, or it can be a Python dictionary (assuming you're using Python).",
+        "importance": "central"
+      },
+      {
+        "claim": "The Resolve API gives no built-in switch to sort clips added to a timeline; ordering must be controlled by the script (e.g. sorting filenames or source timecodes before appending), and AppendToTimeline does not guarantee an order when fed an unordered Python dictionary.",
+        "quote": "Dictionaries in Python 2 are unordered. If you're using a dictionary it's expected the order will be random. It's up to you to either iterate sorted, or order the dictionary keys in the order you require.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "A Resolve scripting workflow can programmatically create a new project, build a media pool folder structure, import media from disk, and create a timeline from those clips.",
+        "quote": "I have a script that creates a new project, builds a pre-defined structure in the media pool , imports media from a disk location, and creates a timeline using those clips.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The user reports the official Resolve scripting documentation does not cover how to control the order in which clips are placed on the timeline.",
+        "quote": "Is this something that can be controlled? I don't see any info in the documentation.",
+        "importance": "tangential"
+      }
+    ],
+    "publishDate": "2020-10-12",
+    "sourceQuality": "forum"
+  },
+  {
+    "claims": [
+      {
+        "claim": "Amazon Polly maps IPA/X-SAMPA phonemes to a compact set of single-character viseme codes for US English; the consonant set uses codes including p, t, S, T, f, k, i, l, r, s, u and vowels map to codes including @, a, e, E, i, o, O, u (the Oculus/Polly viseme scheme).",
+        "quote": "The following table lists the International Phonetic Alphabet (IPA) phonemes, the Extended Speech Assessment Methods Phonetic Alphabet (X-SAMPA) symbols, and the corresponding visemes for the American English voices that are supported by Amazon Polly.",
+        "importance": "central"
+      },
+      {
+        "claim": "Multiple distinct phonemes collapse to the same viseme: bilabials /b/, /m/, /p/ all map to viseme 'p'; alveolars /d/, /n/, /t/ all map to viseme 't'; velars /g/, /h/, /k/, /ŋ/ all map to viseme 'k'; and postalveolars /dʒ/, /ʃ/, /tʃ/, /ʒ/ all map to viseme 'S'.",
+        "quote": "b\tb\tvoiced bilabial plosive\tbed\tp ... m\tm\tbilabial nasal\tmouse\tp ... p\tp\tvoiceless bilabial plosive\tspeak\tp",
+        "importance": "central"
+      },
+      {
+        "claim": "Polly's labiodental fricatives /f/ and /v/ both map to viseme 'f', and the dental fricatives /θ/ and /ð/ both map to viseme 'T', providing a many-to-one phoneme-to-viseme reduction usable for IPA-to-viseme mouth-shape mapping.",
+        "quote": "f\tf\tvoiceless labiodental fricative\tfive\tf ... v\tv\tvoiced labiodental fricative\tvest\tf",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Stress and boundary symbols (primary stress ˈ, secondary stress ˌ, syllable boundary .) have no associated viseme (blank viseme column), meaning these markers should be ignored when generating mouth shapes.",
+        "quote": "ˈ\t\"\tprimary stress\tAlabama\t",
+        "importance": "tangential"
+      }
+    ],
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "Rhubarb Lip Sync outputs mouth shapes using a set of six basic shapes (A-F) plus three optional extended shapes (G, H, X), based on the Preston Blair viseme convention, where X is the idle/rest position for pauses.",
+        "quote": "Six basic shapes (A–F) plus three optional extended shapes: Basic: A, B, C, D, E, F; Extended (optional): G, H, X ... Shape X is the \"idle position\" for pauses in speech.",
+        "importance": "central"
+      },
+      {
+        "claim": "Rhubarb's default recognizer (PocketSphinx) only recognizes English dialog; a separate language-independent phonetic recognizer mode exists that recognizes individual sounds/syllables rather than whole English words and works across languages but is less precise.",
+        "quote": "The default PocketSphinx recognizer \"only recognizes English dialog.\" For non-English recordings, the tool is \"language-independent\" only when using the phonetic mode. ... this recognizer won't try to understand entire (English) words but instead recognize[s] individual sounds and syllables. Results are usually less precise but work across languages.",
+        "importance": "central"
+      },
+      {
+        "claim": "Rhubarb supports multiple output formats including TSV (most compact), XML (verbose with metadata and mouth cue timing), JSON (similar to XML), and DAT (for Moho/OpenToonz).",
+        "quote": "TSV (tab-separated values): \"simplest and most compact export format\"; XML: verbose format with metadata and mouth cue timing; JSON: \"very similar to XML format\"; DAT: for Moho and OpenToonz animation software",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Rhubarb can optionally take a dialog/transcript file via --dialogFile to improve accuracy, preferring words from the transcript but ignoring it where it audibly differs from the recording.",
+        "quote": "Users can provide text via the --dialogFile option. The tool will \"prefer words and phrases that occur in the dialog file,\" leading to \"more reliable animation,\" though it \"will ignore the dialog file where it audibly differs from the recording.\"",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Rhubarb works by analyzing audio, performing speech recognition to determine what sound is being said at what point in time, then automatically generating lip sync timing information.",
+        "quote": "analyzes your audio files, recognizes what is being said, then automatically generates lip sync information ... what sound is being said at what point in time",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2025-04-03 (v1.14.0 release)",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "Rhubarb Lip Sync 1.x only supports English dialog, and adding other languages (such as Ukrainian) would require rewriting most of its code.",
+        "quote": "Rhubarb 1.x only supports English dialog. Support for additional languages has often been requested, but due to a number of technical limitations, adding it to Rhubarb 1.x would require a rewrite of most of its code.",
+        "importance": "central"
+      },
+      {
+        "claim": "Rhubarb uses Preston Blair's mouth shape system consisting of 6 basic shapes plus up to 3 extended shapes.",
+        "quote": "6 basic mouth shapes and up to 3 extended mouth shapes, all of which are pre-defined.",
+        "importance": "central"
+      },
+      {
+        "claim": "Rhubarb 1.x's speech recognition is based on PocketSphinx; the planned Rhubarb 2 will switch to Kaldi as a more modern engine.",
+        "quote": "For speech recognition, I plan to use use [Kaldi](https://kaldi-asr.org/). It's more modern than PocketSphinx",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Rhubarb 2 is planned to be language-agnostic and to use forced alignment of an exact provided dialog transcript rather than a recognition step, including grapheme-to-phoneme via Phonetisaurus.",
+        "quote": "The architecture of Rhubarb 2 will be language-agnostic from the start. This means that adding more languages should be possible at any time with minimal code changes.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Rhubarb 2's mouth-shape naming is planned to be inspired by Amazon Polly viseme standards, relevant to phoneme-to-viseme mapping schemes.",
+        "quote": "improved naming conventions inspired by Amazon Polly viseme standards",
+        "importance": "tangential"
+      }
+    ],
+    "publishDate": "2021-04-09",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "OVR LipSync uses 15 visemes based on the MPEG-4 standard, named: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, I (ih), O (oh), U (ou).",
+        "quote": "OVR LipSync uses 15 visemes based on the MPEG-4 standard. The exact viseme names are: sil (silence), PP (p, b, m), FF (f, v), TH (th), DD (t, d), kk (k, g), CH (tS, dZ, S), SS (s, z), nn (n, l), RR (r), aa (A:), E (e), I (ih), O (oh), U (ou)",
+        "importance": "central"
+      },
+      {
+        "claim": "OVR LipSync maps speech to mouth shapes called visemes, which are a visual analog to phonemes, with each viseme depicting the mouth shape for a specific set of phonemes.",
+        "quote": "Oculus Lipsync maps human speech to a set of mouth shapes, called 'visemes', which are a visual analog to phonemes. Each viseme depicts the mouth shape for a specific set of phonemes.",
+        "importance": "central"
+      },
+      {
+        "claim": "Each Oculus viseme groups multiple related phonemes that share similar mouth positions, providing an explicit phoneme-to-viseme grouping (e.g., PP = p/b/m, FF = f/v, CH = tS/dZ/S, SS = s/z, nn = n/l).",
+        "quote": "Each viseme groups related phonemes that share similar mouth positions. For example, PP combines the phonemes p, b, and m; FF combines f and v; and TH represents the th sound.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The documentation provides three reference images per viseme (mild production, emphasized production, and a 3/4 rotation view) to illustrate the corresponding mouth shapes.",
+        "quote": "For each viseme, the documentation provides three reference images showing mild production, emphasized production, and a 3/4 rotation view to illustrate the corresponding mouth shapes.",
+        "importance": "tangential"
+      }
+    ],
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "Amazon Polly defines a viseme as the visual equivalent of a phoneme, and provides phoneme-to-viseme mappings using IPA and X-SAMPA symbols, with per-language viseme sets — making it a usable phoneme-to-viseme mapping reference.",
+        "quote": "A *viseme* represents the position of the face and mouth when saying a word. It is the visual equivalent of a phoneme... The following chart shows a partial list of International Phonetic Alphabet (IPA) phonemes and Extended Speech Assessment Methods Phonetic Alphabet (X-SAMPA) symbols as well as their corresponding visemes for US English voices.",
+        "importance": "central"
+      },
+      {
+        "claim": "Polly's viseme labels are single/short letter codes (e.g. b->p, d->t, d͡ʒ->S, ð->T, f->f, g->k, h->k), grouping multiple phonemes into one viseme because some phonemes look identical when spoken — this is the Oculus-style viseme naming scheme rather than Preston Blair.",
+        "quote": "not all visemes can be mapped to a particular phoneme because numerous phonemes appear the same when spoken... in English, the words \"pet\" and \"bet\" are acoustically different. However, when observed visually (without sound), they look exactly the same.",
+        "importance": "central"
+      },
+      {
+        "claim": "Polly returns viseme timing data as line-delimited JSON 'speech mark' objects, where each object has a 'time' field giving the timestamp in milliseconds from the start of the audio, a 'type' (including 'viseme'), and a 'value' holding the viseme name — directly usable for converting to frame timecodes.",
+        "quote": "Amazon Polly returns speech mark objects in a line-delimited JSON stream... **time** – the timestamp in milliseconds from the beginning of the corresponding audio stream... **viseme**: the viseme name",
+        "importance": "central"
+      },
+      {
+        "claim": "Speech marks (including visemes) are intended for lip-sync use and are available across neural, long-form, and standard TTS engines.",
+        "quote": "combining the metadata with the audio stream from your text can enable you to synchronize speech with facial animation (lip-syncing)... Speechmarks are available when using neural, long-form, or standard text-to-speech engines.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Each language has its own viseme set tied to its phonemes, and Polly publishes complete per-language phoneme-to-viseme tables — but Ukrainian is not among Polly's supported voices, so Polly cannot directly generate visemes for Ukrainian audio.",
+        "quote": "Each language has a set of viseme that correspond to their specific phonemes... For the complete table and tables for all available languages, see Languages in Amazon Polly.",
+        "importance": "supporting"
+      }
+    ],
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "Cutlass generates FCPXML files targeting format version 1.13, using <fcpxml version=\"1.13\"> as the root document container.",
+        "quote": "The tool targets FCPXML 1.13: `<fcpxml version=\"1.13\">` as the root document container.",
+        "importance": "central"
+      },
+      {
+        "claim": "In FCPXML, still images (PNG/JPG) must be represented as Video elements with duration=\"0s\" assets (formats omitting frameDuration), while videos use AssetClip elements with calculated duration and frameDuration; using the wrong element type crashes FCP.",
+        "quote": "Images (PNG/JPG): Implemented as `Video` elements with `duration=\"0s\"` assets and formats that omit `frameDuration` ... The guide warns: \"Wrong element type = immediate FCP crash\"",
+        "importance": "central"
+      },
+      {
+        "claim": "FCPXML durations use a frame-aligned rational format with a 24000 timebase (e.g. \"240240/24000s\"), and decimal seconds must never be used because they cause sync drift.",
+        "quote": "Duration uses frame-aligned rational format: \"240240/24000s\". The documentation specifies that \"FCP timebase: 24000 denominator, 1001 numerator per frame\" and emphasizes never using decimal seconds as this \"causes sync drift.\"",
+        "importance": "central"
+      },
+      {
+        "claim": "Assets are defined with unique IDs (r1, r2, ...), file references via MediaRep using absolute file:// URIs, duration in frame format, and clips reference assets through ref attributes.",
+        "quote": "Assets are defined with properties including: Unique IDs (`r1`, `r2`, etc.) ... File references via `MediaRep` with absolute file paths: \"file:///path/to/video.mp4\" ... Clips reference these assets through `ref` attributes.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Cutlass's documentation makes no mention of DaVinci Resolve compatibility; it focuses exclusively on Final Cut Pro.",
+        "quote": "No mention of DaVinci Resolve compatibility appears in the provided content. The documentation focuses exclusively on Final Cut Pro integration.",
+        "importance": "supporting"
+      }
+    ],
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "FCPXML represents all time values (durations, offsets, start times) as rational numbers in the form numerator/denominator+'s', e.g. frameDuration of '2002/60000s' for 29.97 fps footage and '100/2500s' for 25 fps PAL, because rational time is more accurate than decimal frame rates.",
+        "quote": "Because it's way more accurate than 30 or even 29.97!",
+        "importance": "central"
+      },
+      {
+        "claim": "Frame rate in FCPXML is the inverse of the frameDuration value, so a frameDuration of 2002/60000s yields 60000/2002 = 29.97002997 fps; this rational math governs seconds-to-frame timecode conversion.",
+        "quote": "60000/2002 = 29.97002997 frames per second",
+        "importance": "central"
+      },
+      {
+        "claim": "Media files are declared once in a <resources> section with unique id attributes, and clips on the timeline reference them via a ref attribute (e.g. ref=\"r1\") pointing to the corresponding <asset id=\"r1\">.",
+        "quote": "The asset element gives us information about the media file: the asset-clip element gives us information about the Clip",
+        "importance": "supporting"
+      },
+      {
+        "claim": "FCPXML and the legacy FCP7 xmeml format are structurally incompatible: xmeml is track-based while FCPXML has no tracks, instead using a single primary storyline with connected clips, and effects/transitions are unlikely to transfer fully between them.",
+        "quote": "There are no tracks in FCPX XML",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Time spans on clip elements are expressed with start and duration attributes both in rational-seconds form, as in a keyword spanning start=\"54263209/15000s\" duration=\"33269236/60000s\" within an asset-clip referencing ref=\"r1\".",
+        "quote": "<asset-clip name=\"clip\" ref=\"r1\" duration=\"399230840/720000s\">",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2017",
+    "sourceQuality": "secondary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "In FCP7 xmeml, a clip's timeline position is set by integer 'start' and 'end' subelements of clipitem (frame-based positions), distinct from 'in'/'out' which define media boundaries; start/end exist on clipitem but not on browser clip.",
+        "quote": "An integer specifying the relative starting point for a clip in a track. ... Note that start, end, link, syncoffset, and enabled are subelements of clipitem, but not of clip.",
+        "importance": "central"
+      },
+      {
+        "claim": "Still images (jpeg, tiff, PSD) are represented with stillframe=TRUE, and a stillframeoffset integer selects the freeze frame; notably, for still frames the duration value represents minutes rather than frames.",
+        "quote": "Photoshop PSD files, jpeg files, tiff files, or other still images imported into Final Cut have stillframe set to TRUE. ... Note that in the case of still frames, the value for duration represents minutes rather than frames.",
+        "importance": "central"
+      },
+      {
+        "claim": "Frame rate is defined by a 'rate' element containing an integer 'timebase' plus a boolean 'ntsc'; setting ntsc=TRUE applies a 0.01% NTSC rate reduction to the timebase (e.g. timebase 30 + ntsc TRUE = 29.97 fps).",
+        "quote": "An integer specifying the timebase of the frame rate. You use timebase in conjunction with ntsc to define the time scale. ... If you set ntsc to TRUE, the NTSC rate reduction (0.01%) is applied to timebase.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Timecode can be expressed as an integer 'frame' count (an actual frame count, not a time index, accounting for skipped numbers in drop-frame), with displayformat DF/NDF; e.g. string 01:00:2;05 at 29.97 fps equals frame count 107657 in drop frame.",
+        "quote": "Note that frame contains an actual frame count, not simply a time index. For a drop frame timecode, the skipped numbers are taken into account. ... a string set to 01:00:2;05 with a rate of 29.97 fps translates to a frame count of 107657 formatted using drop frame notation.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "Media files are referenced via a 'file' element using a 'pathurl' UTF-8 path that must be on a local volume and must start with file://localhost or file:///, with illegal characters percent-escaped per RFC 2396.",
+        "quote": "A file referenced by pathurl must be on a local volume. The URL must start with file://localhost or file:///.",
+        "importance": "supporting"
+      }
+    ],
+    "publishDate": "2017-03-27",
+    "sourceQuality": "primary"
+  },
+  {
+    "claims": [
+      {
+        "claim": "steele-fcpxml is a Python library that programmatically generates Final Cut Pro XML (FCPXML) timelines from lists of clip specifications, producing files importable into DaVinci Resolve (or Final Cut Pro).",
+        "quote": "A Python library for generating Final Cut Pro XML (FCPXML) timelines programmatically, designed to help video editors collaborate with LLMs on automatic edits.",
+        "importance": "central"
+      },
+      {
+        "claim": "The library uses rational-time arithmetic with frame-rate detection so that timeline offsets do not drift, supporting standard frame rates via a FrameRate enum including 25, 29.97, and 23.976 fps.",
+        "quote": "emits the correct rational-time arithmetic so timeline offsets never drift",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The fluent API exposes add_clip() (with source in/out points), add_gap(), add_marker(), fork(), and write() to assemble and export .fcpxml files; a tc() helper parses MM:SS or HH:MM:SS timecodes into seconds.",
+        "quote": "add_clip() — position clips with source in/out points ... The tc() function parses timecodes in MM:SS or HH:MM:SS format to seconds.",
+        "importance": "supporting"
+      },
+      {
+        "claim": "The library does not explicitly document still-image or image-sequence clip support; only video clips are shown in examples, which is a limitation for placing many still mouth-shape images at exact frame timecodes.",
+        "quote": "The documentation provided does not explicitly address still image or image sequence support.",
+        "importance": "central"
+      },
+      {
+        "claim": "steele-fcpxml requires Python 3.12+ and FFmpeg with ffprobe on PATH (for frame-rate detection), is licensed GPLv3+, and is in alpha development status.",
+        "quote": "Python 3.12+ ... FFmpeg with ffprobe on PATH ... Status: Alpha (Development Status 3) ... License: GPLv3+",
+        "importance": "tangential"
+      }
+    ],
+    "publishDate": "2026-06-12",
+    "sourceQuality": "secondary"
+  },
+  {
+    "refuted": false,
+    "evidence": "The Rhubarb README.adoc (the maintainer's own primary documentation) supports every element of the claim verbatim. PocketSphinx default: \"This is the default recognizer.\" English-only: \"The downside is that PocketSphinx only recognizes English dialog. So if your recordings are in a language other than English, this is not a good choice.\" Phonetic recognizer as the non-English workaround: \"Phonetic means that this recognizer won't try to understand entire (English) words and phrases. Instead, it will recognize individual sounds and syllables.\" Language independence: \"The advantage is that this recognizer is language-independent. Use it if your recordings are not in English.\" Precision tradeoff: \"The results are usually less precise than those from the PocketSphinx recognizer.\" The claim paraphrases these accurately with no overreach. Source is authoritative (project's own docs), current (PocketSphinx/Phonetic architecture unchanged), and is a technical design statement, not marketing. No basis for refutation.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Attempted refutation failed: the primary source (Rhubarb README.adoc) confirms every element of the claim verbatim. README states 6 basic shapes A-F plus 3 optional/extended shapes G, H, X. Exact quotes: A=\"Closed mouth for the 'P', 'B', and 'M' sounds\"; B=\"Slightly open mouth with clenched teeth... most consonants... 'EE' sound in bee\"; C=\"Open mouth... 'EH' as in men and 'AE' as in bat\"; D=\"Wide open mouth... 'AA' as in father\"; E=\"Slightly rounded mouth... 'AO' as in off and 'ER' as in bird\"; F=\"Puckered lips... 'UW' as in you, 'OW' as in show, and 'W' as in way\"; G(optional)=\"Upper teeth touching the lower lip for 'F'... and 'V'\"; H(optional)=\"long 'L' sounds\"; X(optional)=\"Idle position... used for pauses in speech.\" This is a one-to-one match with the claim's A-F + G/H/X mapping. The Preston Blair attribution is also standard/correct (Rhubarb's shape set is derived from the Preston Blair phoneme series). No contradicting source found; the claim is sourced to the authoritative primary repository and is current. Only trivial wording differences (claim's shorthand 'EE','idle/rest') which match README semantics exactly.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is fully supported by the primary source (Rhubarb's official README.adoc). Verified quotes from the README: PocketSphinx \"only recognizes English dialog\"; the Phonetic recognizer \"is language-independent\"; and \"The results are usually less precise than those from the PocketSphinx recognizer.\" It also confirms the Phonetic recognizer \"won't try to understand entire (English) words and phrases. Instead, it will recognize individual sounds and syllables.\" This matches the claim verbatim in substance: English-only default recognizer, use Phonetic for non-English (e.g. Ukrainian), language-independent but less precise. Source is the authoritative project repo (DanielSWolf/rhubarb-lip-sync), so source quality matches claim strength. No contradicting evidence; the recognizer architecture is stable and not outdated. The claim is a factual description of tool behavior, not a marketing/benchmark claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is directly supported by the primary source. The official Rhubarb Lip Sync README (https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc) states verbatim that \"PocketSphinx only recognizes English dialog. So if your recordings are in a language other than English, this is not a good choice.\" It also describes the Phonetic recognizer as \"language-independent\" because it \"recognize[s] individual sounds and syllables\" rather than full English words, with the explicit caveat that \"The results are usually less precise than those from the PocketSphinx recognizer.\" Independent search corroboration (npm, sourcepulse, blender-rhubarb-lipsync) repeats the same two-recognizer description. The claim is a faithful paraphrase with no overreach: (1) PocketSphinx = English-only, (2) use Phonetic for non-English/Ukrainian, (3) Phonetic is language-independent but less precise. All three sub-claims are explicit in the source. Source quality (primary, author's own repo) matches the claim strength. No contradicting evidence found; claim is current and the recognizer architecture has not changed.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified against the primary source (raw README.adoc, master branch). All per-shape descriptions in the claim match verbatim: A=\"Closed mouth for P, B, M\"; B=\"clenched teeth... most consonants... EE\"; C=\"Open mouth... EH... AE\"; D=\"Wide open mouth... AA as in father\"; E=\"Slightly rounded... AO... ER\"; F=\"Puckered lips... UW, OW, W\"; G=\"Upper teeth touching the lower lip for F and V (optional)\"; H=\"long L sounds\"; X=\"Idle position... pauses (optional)\". The structural claim is exactly correct: README says \"The first six mouth shapes (A-F) are the basic mouth shapes\" and \"there are three extended mouth shapes: G, H, and X\" (optional). ONE inaccuracy: the claim calls it \"Preston Blair-based,\" but the README attributes the six shapes' origin to Hanna-Barbera studios; Preston Blair is only an OPTIONAL export naming convention via the --datUsePrestonBlair flag, not the basis. This is a minor framing error, not a substantive technical error — every load-bearing detail (letters, sounds, basic/optional split, idle X) is fully supported by the primary source. Source quality is sufficient (official repo README, current master). Not outdated, not marketing.",
+    "confidence": "high",
+    "counterSource": "https://raw.githubusercontent.com/DanielSWolf/rhubarb-lip-sync/master/README.adoc — states the six shapes were \"invented at the Hanna-Barbera studios,\" not by Preston Blair; Preston Blair only appears as the --datUsePrestonBlair optional naming flag."
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified against the primary source (official Rhubarb GitHub repo and README.adoc). WebFetch of github.com/DanielSWolf/rhubarb-lip-sync confirms: Basic shapes A, B, C, D, E, F; Extended/optional shapes G, H, X; \"X: Idle/rest position for pauses between speech.\" WebSearch of README.adoc independently confirms \"six basic mouth shapes and up to three extended mouth shapes, which are optional\" and \"for the X rest position, the lips should be closed but relaxed... This extended mouth shape is optional.\" The README also documents Preston Blair name support (--datUsePrestonBlair flag; A=MBP, D=AI, X=rest), used mainly for OpenToonz. The claim's letter set, basic/extended split, and X=rest are all exactly correct. Minor framing quibble: the alphabetic A-F naming is Rhubarb's NATIVE default, with Preston Blair offered as an optional alternate naming scheme, so saying the shapes are strictly \"based on the Preston Blair convention\" slightly inverts the relationship — but this does not falsify the substantive content. Source quality matches claim strength (primary/authoritative). Claim is current.",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc"
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified against the primary source (raw README.adoc). All nine viseme mappings match the README verbatim: A=\"Closed mouth for the 'P','B','M' sounds\"; B=\"Slightly open mouth with clenched teeth... vowels such as the 'EE' sound in bee\"; C=\"Open mouth... 'EH' as in men and 'AE' as in bat\"; D=\"Wide open mouth... 'AA' as in father\"; E=\"Slightly rounded mouth... 'AO' as in off and 'ER' as in bird\"; F=\"Puckered lips... 'UW' as in you, 'OW' as in show, and 'W' as in way\"; G(optional)=\"Upper teeth touching the lower lip for 'F'... and 'V'\"; H(optional)=\"long 'L' sounds\"; X(optional)=\"Idle position... pauses in speech\". The 6 basic + 3 optional split is correct. One minor framing imprecision: the README attributes the six basic shapes' invention to \"Hanna-Barbera studios,\" and offers Preston Blair naming only as an optional convention (--datUsePrestonBlair / dat flag), so calling them strictly \"Preston Blair-based\" is a loose characterization rather than the README's exact attribution. However Rhubarb does natively support the Preston Blair naming scheme, and every substantive phoneme-to-shape mapping in the claim is verbatim accurate, so the claim's load-bearing content holds.",
+    "confidence": "high",
+    "counterSource": "README.adoc itself: the six basic shapes are attributed to Hanna-Barbera studios (\"invented at the Hanna-Barbera studios for shows such as Scooby-Doo and The Flintstones\"), with Preston Blair offered only as an optional naming convention — a minor qualification, not a refutation."
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (Rhubarb README.adoc on github.com/DanielSWolf/rhubarb-lip-sync) confirms every substantive part of the claim verbatim: (1) \"The first six mouth shapes (Ⓐ-Ⓕ) are the basic mouth shapes and the absolute minimum you have to draw\"; (2) \"In addition to the six basic mouth shapes, there are three extended mouth shapes: Ⓖ, Ⓗ, and Ⓧ. These are optional\"; (3) Shape X is described as \"Idle position. This mouth shape is used for pauses in speech.\" Rhubarb also provides a --datUsePrestonBlair option mapping the A-X letters to Preston Blair phoneme names, so the Preston Blair linkage is genuine and explicit in the tool. One minor framing nuance: the README attributes the six-shape system's origin primarily to Hanna-Barbera studios (Scooby-Doo, Flintstones) as a de-facto 2D-animation standard, with Preston Blair naming offered as an optional export convention rather than the claimed basis. This is a small imprecision in \"based on the Preston Blair convention,\" not a substantive error — the shape set, count, letters, and X-as-idle definition are all exactly correct. Cross-checked against secondary sources (Moho forum, Tahoma2D docs, OpenToonz group) which corroborate the 6+3 shape model and Preston Blair naming for OpenToonz. Claim is current and well-supported by the authoritative primary source.",
+    "confidence": "high",
+    "counterSource": "README.adoc attributes the six-shape origin to Hanna-Barbera, not Preston Blair, who is offered only as an optional naming scheme (--datUsePrestonBlair). Minor framing nuance, not a refutation."
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (Rhubarb's own README at github.com/DanielSWolf/rhubarb-lip-sync) confirms every element verbatim: (1) \"PocketSphinx... This is the default recognizer.\" (2) \"the downside is that PocketSphinx only recognizes English dialog.\" (3) phonetic recognizer \"won't try to understand entire (English) words and phrases. Instead, it will recognize individual sounds and syllables.\" (4) \"the advantage is that this recognizer is language-independent. Use it if your recordings are not in English.\" (5) \"results are usually less precise than those from the PocketSphinx recognizer.\" The claim is a faithful paraphrase with no overreach. Source is the maintainer's own documentation — the authoritative source for the tool's own behavior. Not a fast-moving field claim, not marketing, not extraordinary.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is confirmed nearly verbatim by the primary source (official Rhubarb Lip Sync GitHub README). README states: (1) \"PocketSphinx... This is the default recognizer. The downside is that PocketSphinx only recognizes English dialog.\" -> matches \"default recognizer (PocketSphinx) only recognizes English dialog.\" (2) \"Rhubarb Lip Sync also comes with a phonetic recognizer. Phonetic means that this recognizer won't try to understand entire (English) words and phrases. Instead, it will recognize individual sounds and syllables. The results are usually less precise than those from the PocketSphinx recognizer. The advantage is that this recognizer is language-independent.\" -> matches \"a separate language-independent phonetic recognizer mode... recognizes individual sounds/syllables rather than whole English words and works across languages but is less precise.\" Every element of the claim (default=PocketSphinx, English-only, separate phonetic mode, sounds/syllables not words, language-independent, less precise) is directly supported. Source is the tool's own authoritative repository, matching the claim's strength. Not outdated (describes stable core architecture), not marketing. No refutation possible.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": true,
+    "evidence": "PARTIALLY supported but contains a material misattribution. The shape inventory is exactly correct per the primary source (github.com/DanielSWolf/rhubarb-lip-sync README.adoc): six basic shapes A-F, three optional extended shapes G, H, X, with X = \"Idle position ... used for pauses in speech.\" That part of the claim is verbatim-accurate.\n\nHowever, the claim's assertion that the shapes are \"based on the Preston Blair viseme convention\" is CONTRADICTED by the primary source. The README states: \"These six mouth shapes were invented at the Hanna-Barbera studios for shows such as Scooby-Doo and The Flintstones.\" Preston Blair is NOT the foundation of Rhubarb's shapes — it is merely an OPTIONAL export naming mapping (the `--datUsePrestonBlair` flag, \"Uses Preston Blair mouth shapes names instead of the default alphabetical ones\"), and the README notes the only situation you NEED Preston Blair names is when targeting OpenToonz. The supplied \"supporting quote\" (\"based on the Preston Blair viseme convention\") does not appear in the source and misrepresents the origin (Hanna-Barbera, not Preston Blair).\n\nPer the rubric, the claim is partially unsupported by the actual source on a load-bearing point (the convention's basis/attribution), so refuted=true. The corrected accurate version: Rhubarb outputs Hanna-Barbera-derived shapes A-F (basic) + G,H,X (optional), with X as idle/rest, and offers Preston Blair as an optional naming scheme.",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc"
+  },
+  {
+    "refuted": false,
+    "evidence": "The official Rhubarb Lip Sync README (github.com/DanielSWolf/rhubarb-lip-sync) verbatim confirms every element. PocketSphinx: \"This is the default recognizer. The downside is that PocketSphinx only recognizes English dialog.\" Phonetic recognizer: \"Phonetic means that this recognizer won't try to understand entire (English) words and phrases. Instead, it will recognize individual sounds and syllables. The results are usually less precise than those from the PocketSphinx recognizer. The advantage is that this recognizer is language-independent.\" The claim is a faithful paraphrase, not an overreach. Attempted refutation on all checklist points: (1) quote support — exact match; (2) contradiction — none found, this IS the primary doc; (3) source quality — primary repo, sufficient; (4) outdated — the recognizer architecture (CMU PocketSphinx default + phonetic mode) is long-standing and unchanged in current master README; (5) marketing — no, it's technical documentation that openly states the phonetic mode's lower precision (a candid limitation, not a sales pitch).",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": true,
+    "evidence": "The claim (\"Rhubarb 1.x only supports English dialog, and adding other languages would require rewriting most of its code\") is REFUTED by Rhubarb's own official README.adoc. While the quoted issue #95 (opened April 9, 2021) is accurate about the PocketSphinx recognizer, the claim overgeneralizes to all of Rhubarb 1.x and is contradicted by the documented `-r/--recognizer` option. The README explicitly states: PocketSphinx \"only recognizes English dialog\" (default), BUT Rhubarb 1.x ALSO ships a second recognizer: \"Rhubarb Lip Sync also comes with a phonetic recognizer... it will recognize individual sounds and syllables. The advantage is that this recognizer is language-independent. Use it if your recordings are not in English.\" The CLI option `-r phonetic` is explicitly described as \"(use for non-English recordings).\" So Rhubarb 1.x DOES support non-English (e.g. Ukrainian) audio today via `--recognizer phonetic` — no code rewrite required; the only trade-off is lower precision than PocketSphinx. The issue #95 quote refers specifically to PocketSphinx-quality word-level recognition and the planned language-agnostic Rhubarb 2 architecture, NOT to a total English-only limitation. The claim as worded is an overreach/misread of the source, since it omits the existing phonetic-mode workaround that is central to the very research question being investigated.",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc"
+  },
+  {
+    "refuted": false,
+    "evidence": "Confirmed by the official Rhubarb Lip Sync README (github.com/DanielSWolf/rhubarb-lip-sync): \"The first six mouth shapes (A-F) are the basic mouth shapes... the absolute minimum you have to draw\" plus \"three extended mouth shapes: G, H, and X.\" So 6 basic + up to 3 extended is accurate. The 6 shapes (A-F) originate from Hanna-Barbera and are widely standard in 2D animation; \"Preston Blair\" is the alternate naming convention (A=MBP, C=E, D=AI, E=O, F=U, etc.) used mainly for OpenToonz export. Minor imprecision: the claim attributes the system to \"Preston Blair\" whereas Rhubarb credits Hanna-Barbera for the basic 6 and uses Preston Blair only as an alternate naming scheme — but the shape COUNT (6 basic + up to 3 extended = 9 total) is exactly right and the issue #95 quote is genuine.",
+    "confidence": "high",
+    "counterSource": "No contradicting source found; the official README corroborates the count."
+  },
+  {
+    "refuted": true,
+    "evidence": "The verbatim quote is accurate (it appears in issue #95: \"Rhubarb 1.x only supports English dialog... adding it to Rhubarb 1.x would require a rewrite of most of its code\"), BUT the claim as worded is an overreach contradicted by Rhubarb's own primary documentation. The quote refers specifically to WORD-LEVEL recognition (PocketSphinx). The official README documents a `--recognizer phonetic` mode that explicitly handles non-English audio: \"this recognizer is language-independent. Use it if your recordings are not in English\" and lists option `phonetic` \"(use for non-English recordings)\". Issue #45 (same maintainer) confirms phonetic recognition \"will extract phonemes\" from non-English speech as a working interim solution, and search results note Rhubarb 1.9 was \"the first version that supports non-English recordings.\" There is even a tutorial \"How to animate non-English dialog using Rhubarb Lip Sync.\" So a Ukrainian WAV CAN be processed by Rhubarb 1.x via phonetic mode (with reduced accuracy). The bare claim \"only supports English dialog\" is therefore misleading and incomplete — the full-rewrite statement applies only to language-specific WORD recognition, not to producing visemes from non-English audio at all. The research question itself asks about \"phonetic-mode workarounds,\" which the claim's framing erases.",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync (README: --recognizer phonetic \"language-independent... use if your recordings are not in English\"); https://github.com/DanielSWolf/rhubarb-lip-sync/issues/45 (phonetic recognition extracts phonemes from non-English speech)"
+  },
+  {
+    "refuted": true,
+    "evidence": "The claim's absolute framing (\"Rhubarb Lip Sync 1.x only supports English dialog\") is contradicted by Rhubarb's own official README, which documents a second recognizer: \"Phonetic means that this recognizer won't try to understand entire (English) words and phrases. Instead, it will recognize individual sounds and syllables. The advantage is that this recognizer is language-independent. Use it if your recordings are not in English.\" This phonetic mode was added in Rhubarb 1.9 (still 1.x) and is selectable via `--recognizer phonetic`. So Rhubarb 1.x CAN process Ukrainian/non-English audio — no code rewrite required. The supporting quote is genuine (GitHub issue #95, opened 2021-04-09, by maintainer Daniel S. Wolf) and correctly transcribed, but it specifically concerns the PocketSphinx word-level English recognizer and the broader language-agnostic goals of the planned Rhubarb 2 — NOT the existing phonetic recognizer. Thus the claim conflates \"PocketSphinx only does English\" with \"Rhubarb only does English,\" an overreach that ignores the documented phonetic workaround the research question explicitly asks about. The quote does not support the strong claim as written.",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync (official README, Phonetic recognizer section)"
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (mfa-models.readthedocs.io official MFA models docs) directly confirms all three assertions: download command is exactly \"mfa model download acoustic ukrainian_mfa\", model name is \"ukrainian_mfa\", and version is v3.0.0 (trained 2024-03-21, compatible with MFA 3.0.0). An independent WebSearch corroborates the identical command syntax and model name across multiple MFA documentation and GitHub sources. The quote fully supports the claim with no overreach; source is primary/official and current; no contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": true,
+    "evidence": "The count (6 basic + up to 3 extended = 6-9 shapes) is correct and matches issue #95 and Rhubarb's README. BUT the claim misattributes the system to Preston Blair. Rhubarb's README explicitly states: \"These six mouth shapes were invented at the Hanna-Barbera studios for shows such as Scooby-Doo and The Flintstones.\" Preston Blair is NOT the originator — his name is only an OPTIONAL alternate naming convention, enabled via the --datUsePrestonBlair flag, mapping alphabetic names (A-F basic; G,H,X extended) to Preston Blair labels (MBP, etc, E, AI, O, U). Rhubarb's default uses alphabetic Hanna-Barbera names, not Preston Blair. The supporting quote (\"6 basic mouth shapes and up to 3 extended mouth shapes, all of which are pre-defined\") confirms the count but says nothing attributing the SYSTEM to Preston Blair. The claim conflates the Hanna-Barbera shape set with the Preston Blair naming convention — an overreach unsupported by the quote and contradicted by the primary source (README.adoc).",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/README.adoc"
+  },
+  {
+    "refuted": false,
+    "evidence": "The official MFA models documentation page (https://mfa-models.readthedocs.io/en/latest/acoustic/Ukrainian/Ukrainian%20MFA%20acoustic%20model%20v3_0_0.html) explicitly lists the install command \"mfa model download acoustic ukrainian_mfa\" for the Ukrainian MFA acoustic model v3.0.0. The model name \"ukrainian_mfa\" and version v3.0.0 are both confirmed verbatim. The acoustic models index page (https://mfa-models.readthedocs.io/en/latest/acoustic/index.html) independently confirms a \"Ukrainian MFA acoustic model v3_0_0\" entry using the MFA phoneset, CC BY 4.0 license. The claim is a verbatim restatement of the documented command with no overreach. Note: per MFA's naming convention, the version is implicit in the latest tagged model; the bare \"ukrainian_mfa\" name resolves to the newest version (v3.0.0).",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (mfa-models.readthedocs.io, Ukrainian MFA acoustic model v3_0_0 page) confirms verbatim the command \"mfa model download acoustic ukrainian_mfa\" and the model name \"ukrainian_mfa\" at version v3.0.0. Independent WebSearch corroborated the same model name and command, citing the official MFA docs. The quote fully supports the claim with no overreach. Source is the authoritative MFA project documentation (MontrealCorpusTools), matching the claim's strength. Note: the command downloads the model (not necessarily \"installs\" in a strict sense, but MFA's download places it in the local model store ready for use), so the phrasing is accurate.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": true,
+    "evidence": "The numeric part of the claim (6 basic + up to 3 extended shapes) is CORRECT and primary-source confirmed: Rhubarb's README.adoc states \"The first six mouth shapes (A-F) are the basic mouth shapes... there are three extended mouth shapes: G, H, and X. These are optional.\" Issue #95's quote also supports \"6 basic mouth shapes and up to 3 extended mouth shapes.\" HOWEVER, the claim's framing \"Rhubarb uses Preston Blair's mouth shape system\" is a misattribution contradicted by the same primary source. The README explicitly credits the shapes to a DIFFERENT origin: \"These six mouth shapes were invented at the Hanna-Barbera studios for shows such as Scooby-Doo and The Flintstones.\" Preston Blair is NOT the originator of Rhubarb's system; \"Preston Blair names\" are merely an optional alternative LABELING convention (Rhubarb defaults to alphabetic A-F/G/H/X), needed only for OpenToonz compatibility which \"only supports the Preston Blair names.\" The supporting quote backs the shape COUNT but does not support the \"Preston Blair's system\" attribution, so that portion is an overreach/misread. Accurate phrasing would be \"Rhubarb uses the Hanna-Barbera mouth shape system, optionally labeled with Preston Blair names.\"",
+    "confidence": "high",
+    "counterSource": "https://github.com/DanielSWolf/rhubarb-lip-sync (README.adoc): \"These six mouth shapes were invented at the Hanna-Barbera studios\"; \"Rhubarb Lip Sync can use Preston Blair mouth shapes names instead of the default alphabetical ones... The only situation where you need to use the Preston Blair names is when you're using OpenToonz.\""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (mfa-models.readthedocs.io, the official MFA models documentation) confirms all three components of the claim verbatim. The page lists \"Ukrainian MFA dictionary v3.0.0\" under Pronunciation dictionaries as the corresponding/paired resource, and the Intended use section states \"This model uses the MFA phone set for Ukrainian, and was trained with the pronunciation dictionaries above.\" WebSearch corroborated: the model \"uses the MFA phone set for Ukrainian, and was trained with pronunciation dictionaries.\" The claim is well-supported, the source is the authoritative primary source (MontrealCorpusTools official docs), versions match (v3.0.0 acoustic + v3.0.0 dictionary), and current MFA docs are 3.1.2/3.X. No contradicting source found. The naming convention (acoustic model and dictionary sharing the same language name and version) is standard MFA practice and consistent across the official model repository.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (official MFA model registry, MontrealCorpusTools) at the cited URL directly confirms all three parts of the claim. The page lists \"Ukrainian MFA dictionary v3.0.0\" as the paired pronunciation dictionary and states: \"This model uses the MFA phone set for Ukrainian, and was trained with the pronunciation dictionaries above.\" This matches the claim exactly: (1) pairs with Ukrainian MFA dictionary v3.0.0, (2) uses the MFA phone set. WebSearch corroborated the existence of the matching dictionary v3.0.0 and G2P model v3.0.0 in the same registry (docs version mfa-models 3.1.2). No contradicting source found; source quality is the authoritative first-party registry, appropriate for this factual/non-extraordinary claim. The supporting quote is not an overreach.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is well-supported. The primary source (MFA models page for Ukrainian acoustic model v3.0.0) states verbatim: \"This model is intended for forced alignment of Ukrainian transcripts\" — matching the supporting quote exactly. The inference that \"a transcript is required as input\" is correct by definition: forced alignment is the task of aligning a pre-existing transcript to audio. The MFA docs confirm `mfa align` requires a corpus of \"pairs of sound files and transcription files with the same name,\" i.e., a transcript IS a mandatory input alongside audio, dictionary, and acoustic model. The \"e.g. produced by Whisper\" clause is hedged as one example mechanism (not asserted as a model fact), and is a sensible/accurate way to obtain a transcript for a podcast WAV. No contradicting evidence exists; this is standard, uncontroversial forced-alignment behavior. The WebFetch noted the page does not \"explicitly\" call transcripts a required input, but that is a wording quibble — the model name, intended-use statement, and MFA's own input spec all make transcript a hard requirement. Source quality (official MFA/readthedocs primary docs) is appropriate for this non-extraordinary, current claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (official MFA models registry, mfa-models.readthedocs.io) explicitly confirms all three parts of the claim. The acoustic model page states it pairs with \"Ukrainian MFA dictionary v3.0.0\" and that \"This model uses the MFA phone set for Ukrainian, and was trained with the pronunciation dictionaries above.\" A corroborating WebSearch returned the same official documentation and an independent restatement (\"uses the MFA phone set for Ukrainian, having been trained with the pronunciation dictionaries\"). The source is authoritative (maintained by MontrealCorpusTools, the MFA developers), is the matching version (v3.0.0 acoustic model + v3.0.0 dictionary), and is current. No contradicting evidence found. The quote fully supports the claim; no overreach.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (official MFA model docs, v3.0.0) explicitly states \"This model is intended for forced alignment of Ukrainian transcripts,\" directly matching the supporting quote. The inference that a transcript is required is correct by definition: forced alignment time-aligns a PRE-EXISTING transcript to audio. The MFA User Guide and multiple independent tutorials (eleanorchodroff.com, lingmethodshub) confirm MFA requires both an audio file AND a text transcript (as .lab/.txt/TextGrid) as inputs. The \"e.g. produced by Whisper\" clause is presented as one example of obtaining a transcript for a podcast that lacks one, not asserted as a mandatory tool. Source quality (primary official docs) matches the claim strength, and the field assertion is stable, not outdated. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (official MFA models docs page for \"Ukrainian MFA dictionary v2_0_0a\") shows the exact command verbatim: \"mfa model download dictionary ukrainian_mfa\". This matches the claim word-for-word, including the dictionary name \"ukrainian_mfa\" and version v2.0.0a (consistent with the URL slug). The command also follows the documented MFA CLI convention \"mfa model download dictionary <name>\" used in official English examples (e.g. \"mfa model download dictionary english_us_arpa\"), confirming the syntax is correct, not invented. Source is authoritative/primary and current (MFA 2.x/3.x docs). No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "confidence": "high",
+    "counterSource": "No credible contradicting source found; all sources (mfa-models.readthedocs.io, eleanorchodroff.com MFA tutorial, lingmethodshub.github.io) agree forced alignment requires a transcript.",
+    "evidence": "The claim is well-supported and not refuted. (1) Quote support: The primary source (mfa-models.readthedocs.io, Ukrainian MFA acoustic model v3.0.0) explicitly states \"This model is intended for forced alignment of Ukrainian transcripts.\" The page also says forced alignment is \"a relatively well-constrained problem (given accurate transcripts),\" directly confirming a transcript is required as input. (2) Independent corroboration: Eleanor Chodroff's MFA tutorial states MFA \"will time-align a transcript to a corresponding audio file... provided there exist a set of pretrained acoustic models and a pronunciation dictionary\"; mfa align takes audio files plus utterance-level transcripts (.lab/.txt/TextGrid) as inputs. This is the definitional nature of *forced* alignment (vs. recognition). (3) Source quality: primary vendor docs plus academic/community corroboration — sufficient for this non-extraordinary claim. (4) The \"e.g. produced by Whisper\" qualifier is correctly hedged with \"e.g.\", presenting Whisper as one possible transcript source rather than a requirement, so it is not an overreach. (5) Not outdated (v3.0.0, current docs) and not marketing. No contradicting evidence found.</parameter>\n</invoke>\n"
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (mfa-models.readthedocs.io Ukrainian MFA dictionary v2_0_0a page) explicitly shows the exact command \"mfa model download dictionary ukrainian_mfa\", verified via direct WebFetch of the cited URL. The command also matches the documented MFA CLI syntax: \"mfa model download {acoustic|dictionary|g2p|...} [MODEL_NAME]\" (confirmed via MontrealCorpusTools docs in search results), and \"ukrainian_mfa\" follows the standard MFA model naming convention. Source is the official, primary MontrealCorpusTools documentation — appropriate quality for this technical claim. Minor caveat (does not refute): the bare command fetches the current latest version rather than pinning v2.0.0a specifically, but the command is correctly documented on the v2.0.0a page and does install the Ukrainian MFA dictionary as claimed. No contradicting sources found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (mfa-models.readthedocs.io Ukrainian MFA dictionary v2.0.0a page) shows the exact install command verbatim: \"mfa model download dictionary ukrainian_mfa\" and lists the version as v2.0.0a. The command matches MFA's documented CLI syntax: \"mfa model download [acoustic|dictionary|g2p|...] [MODEL_NAME]\" as confirmed by the official MFA user guide (montreal-forced-aligner.readthedocs.io) and multiple tutorials (LingMethodsHub, Eleanor Chodroff). The dictionary name \"ukrainian_mfa\" follows the standard MFA naming convention (e.g., english_mfa). No source disputes or qualifies the claim. The quote fully supports the claim; source quality (official MontrealCorpusTools documentation) matches the claim strength.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (mfa-models.readthedocs.io, Ukrainian MFA dictionary v2.0.0a page) confirms the claim verbatim. WebFetch returned the exact phone inventory: \"b bʲ bʲː bː c cː dzʲ dʒ dʲ dʲː d̪ d̪z̪ d̪z̪ː d̪ː e f fʲ i j k kː l lː m mʲ mʲː n̪ n̪ː o p pʲ pʲː sʲ sʲː s̪ s̪ː tsʲ tsʲː tʃ tʃʲ tʃʲː tʃː tʲ tʲː t̪ t̪s̪ t̪s̪ː t̪ː u x zʲ zʲː z̪ z̪ː ç ɐ ɑ ɔ ɛ ɡ ɡː ɦ ɦː ɪ ɲ ɲː ɾ ɾʲ ɾʲː ɾː ʃ ʃʲ ʃʲː ʊ ʋ ʋʲ ʋʲː ʋː ʎ ʎː ʒ ʒʲ ʒʲː ʝ\". Every base phone the claim enumerates (b bʲ c dzʲ dʒ d̪ e f i j k l m n̪ o p sʲ s̪ tsʲ tʃ tʲ t̪ u x zʲ z̪ ç ɐ ɑ ɔ ɛ ɡ ɦ ɪ ɲ ɾ ʃ ʊ ʋ ʎ ʒ ʝ) is present in the full list, so it is a correct subset, not an overreach. Source confirms it is an IPA-based MFA phone set, version v2.0.0a, and the inventory plainly contains palatalized (ʲ) and long (ː) variants as claimed. The \"~80 phones\" approximation is reasonable (full list is roughly 90 entries). Claim is current (official docs, latest version) and the source quality (the authoritative MFA model documentation) matches the strength of this factual inventory claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Fetched the primary source (official MFA models docs, the authoritative source) at the claimed URL. The page lists the verbatim phone inventory for Ukrainian MFA dictionary v2.0.0a: \"b bʲ bʲː bː c cː dzʲ dʒ dʲ dʲː d̪ d̪z̪ d̪z̪ː d̪ː e f fʲ i j k kː l lː m mʲ mʲː n̪ n̪ː o p pʲ pʲː sʲ sʲː s̪ s̪ː tsʲ tsʲː tʃ tʃʲ tʃʲː tʃː tʲ tʲː t̪ t̪s̪ t̪s̪ː t̪ː u x zʲ zʲː z̪ z̪ː ç ɐ ɑ ɔ ɛ ɡ ɡː ɦ ɦː ɪ ɲ ɲː ɾ ɾʲ ɾʲː ɾː ʃ ʃʲ ʃʲː ʊ ʋ ʋʲ ʋʲː ʋː ʎ ʎː ʒ ʒʲ ʒʲː ʝ\". Every base phone the claim enumerates (b bʲ c dzʲ dʒ d̪ e f i j k l m n̪ o p sʲ s̪ tsʲ tʃ tʲ t̪ u x zʲ z̪ ç ɐ ɑ ɔ ɛ ɡ ɦ ɪ ɲ ɾ ʃ ʊ ʋ ʎ ʒ ʝ) appears in the full list. The claim that it is IPA-based and includes palatalized (ʲ) and long (ː) variants is directly visible in the inventory (e.g. bʲ vs bʲː, kː, ʋʲː). The \"~80 phones\" figure matches the fetched count of 80+. The supporting quote matches the source exactly, no overreach. Version is explicitly stated (v2.0.0a), so no outdating concern; this is a static dictionary inventory, not a fast-moving benchmark claim. Source quality (primary official docs) matches the claim's strength.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Fetched the primary source (mfa-models.readthedocs.io, official MFA documentation) for Ukrainian MFA dictionary v2.0.0a. The page confirms: version \"v2.0.0a\", \"IPA-based MFA phone set,\" and the exact phone inventory matching the supporting quote verbatim: \"b bʲ bʲː bː c cː dzʲ dʒ dʲ dʲː d̪ d̪z̪ d̪z̪ː d̪ː e f fʲ i j k kː l lː m mʲ mʲː n̪ n̪ː o p pʲ pʲː sʲ sʲː s̪ s̪ː tsʲ tsʲː tʃ tʃʲ tʃʲː tʃː tʲ tʲː t̪ t̪s̪ t̪s̪ː t̪ː u x zʲ zʲː z̪ z̪ː ç ɐ ɑ ɔ ɛ ɡ ɡː ɦ ɦː ɪ ɲ ɲː ɾ ɾʲ ɾʲː ɾː ʃ ʃʲ ʃʲː ʊ ʋ ʋʲ ʋʲː ʋː ʎ ʎː ʒ ʒʲ ʒʲː ʝ\". Every phone in the claim's listed subset (b bʲ c dzʲ dʒ d̪ e f i j k l m n̪ o p sʲ s̪ tsʲ tʃ tʲ t̪ u x zʲ z̪ ç ɐ ɑ ɔ ɛ ɡ ɦ ɪ ɲ ɾ ʃ ʊ ʋ ʎ ʒ ʝ) is present in the inventory. Palatalized (ʲ) and long (ː) variants are confirmed present (e.g. bʲː, mʲː, n̪ː, ʒʲː). The \"~80 phones\" approximation matches the ~85-entry full list. Source quality is appropriate: official primary documentation matching a technical factual claim. No contradicting evidence found; claim is not outdated (specific pinned version) and is not a marketing claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Claim is fully supported by primary official source. The MFA phone set page (mfa-models.readthedocs.io/en/latest/mfa_phone_set.html) lists Ukrainian among covered languages alongside Russian and Polish, with a dedicated Ukrainian phone set section linking to \"Ukrainian MFA dictionary v2.0.0\" IPA charts. Independently corroborated: the official MontrealCorpusTools mfa-models repository hosts Ukrainian MFA dictionaries (v2.0.0, v2.0.0a) AND Ukrainian MFA acoustic models (v2_0_0, v2_0_0a, v3_0_0, all CC BY 4.0) per mfa-models.readthedocs.io/en/latest/acoustic/index.html. The acoustic model — the component that actually makes Ukrainian a \"trained/supported\" language for forced alignment, not merely a dictionary — exists in three versions up to MFA 3.1.2. No contradicting source found. Source is primary, current, and technical (not marketing).",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified against primary/official MFA sources. The phone set page (mfa-models.readthedocs.io/en/latest/mfa_phone_set.html) has a dedicated \"Ukrainian\" section documenting Ukrainian consonants and vowels, and lists Ukrainian among covered languages alongside Russian, Polish, etc. — matching the supporting quote exactly. Independently corroborated by a dedicated model page: \"Ukrainian MFA acoustic model v3.0.0\" (install: `mfa model download acoustic ukrainian_mfa`), with a matching \"Ukrainian MFA dictionary v3.0.0\", trained 2024-03-21 on ~192 hours (Common Voice UK v16.1 94.80h, M-AILABS UK 83.22h, GlobalPhone UK v3.1 14.11h), CC BY 4.0, compatible with MFA v3.0.0. The claim does not overreach: it asserts Ukrainian-specific phone set entries and ecosystem support, both of which exist. Source is current and authoritative (official ReadTheDocs for MFA models). No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified against the cited primary source (https://mfa-models.readthedocs.io/en/latest/mfa_phone_set.html). Two WebFetch calls confirm that under the page's \"Ukrainian consonants\" subsection the text reads verbatim \"Velar and alveolar soft consonants are represented as palatal\" with the exact mappings kʲ→c, ɦʲ→ç, xʲ→ʝ, nʲ→ɲ, lʲ→ʎ — identical symbol-for-symbol to the claim and supporting quote. The inference that these are the phone symbols a parser encounters in Ukrainian TextGrid output is sound: MFA writes its acoustic model's phone-set labels into the TextGrid phone tier, so the palatal symbols (c, ç, ʝ, ɲ, ʎ) are exactly what surfaces in aligned output. No contradicting source found; the claim is sourced to authoritative primary docs, is current, and the source quality matches the claim strength. One minor caveat (not a refutation): the docs list these as exactly 5 velar/alveolar→palatal conversions, and Ukrainian also has other palatalized consonants (e.g. tʲ, dʲ, sʲ, zʲ, rʲ) that MFA represents with the superscript-ʲ notation rather than palatal symbols — but the claim only asserts these 5 specific mappings and labels them as velar/alveolar, which is accurate.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "CONFIRMED, not refuted. The primary source (mfa-models.readthedocs.io/en/latest/mfa_phone_set.html) explicitly lists Ukrainian among covered languages alongside Russian, Polish, etc., and has a dedicated \"Ukrainian\" subsection under \"Specific language notes.\" Critically, the claim is verified beyond just the phone-set page by the existence of actual downloadable trained models on the official MontrealCorpusTools/mfa-models repository: Ukrainian MFA acoustic models (v2.0.0, v2.0.0a, v3.0.0, all using the MFA phoneset, CC BY 4.0), a Ukrainian CV acoustic model (XPF phoneset, CC-0), the Ukrainian MFA dictionary v2.0.0a, and the Ukrainian MFA G2P model v3.0.0 — each with its own documentation page and downloadable via `mfa model download acoustic ukrainian_mfa` / `mfa model download dictionary ukrainian_mfa`. Sources are official, primary, and current (v3.0.0 models). No contradicting evidence found. The supporting quote is essentially verbatim from the source and the claim does not overreach.",
+    "confidence": "high",
+    "counterSource": "No credible counter-source found. The official MFA docs (mfa-models.readthedocs.io) and the MontrealCorpusTools/mfa-models GitHub repo both corroborate Ukrainian support with named, downloadable acoustic/dictionary/G2P models."
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (official MFA models docs at mfa-models.readthedocs.io, Ukrainian MFA G2P model v3.0.0) directly confirms every element of the claim. Two independent WebFetch passes returned identical figures: training stats show \"Words: 58,496\", \"Phones: 87\", \"Graphemes: 34\". The page states the model \"uses the MFA phone set for Ukrainian, and was trained from the pronunciation dictionaries above\" (the Ukrainian MFA dictionary v3.0.0). The claim's wording (\"MFA Ukrainian phone set,\" \"87 phones,\" \"34 graphemes,\" \"trained from the Ukrainian MFA pronunciation dictionaries\") is an exact, faithful restatement of the documented specs — no overreach. Source quality is primary/official, matching claim strength. One caveat noted but not refuting: the page's reported eval WER/PER were 100% (likely a docs rendering quirk), but this does not bear on the phone/grapheme inventory or training source being claimed.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is verified against the primary source. The official MFA models documentation page (https://mfa-models.readthedocs.io/en/latest/g2p/Ukrainian/Ukrainian%20MFA%20G2P%20model%20v3_0_0.html) titled \"Ukrainian MFA G2P model v3.0.0 — mfa model 3.1.2 documentation\" lists the install command verbatim as `mfa model download g2p ukrainian_mfa`. The Ukrainian G2P index page confirms v3.0.0 exists (alongside v2.0.0 and v2.0.0a). The CLI identifier `ukrainian_mfa` follows MFA's standard naming convention (display name \"Ukrainian MFA G2P model\" maps to CLI handle `ukrainian_mfa`, identical to the pattern for `english_mfa`, etc.). Documentation states the model \"generates pronunciations\" from Ukrainian text trained on pronunciation dictionaries, matching the claim. Source is the canonical/authoritative MFA documentation (primary source), and the source quality matches the claim strength. The slight mismatch (index lists display name \"Ukrainian MFA G2P model v3_0_0\" not literal \"ukrainian_mfa\") is the expected display-name vs CLI-handle distinction, not a refutation — the model's own v3.0.0 page explicitly gives the `ukrainian_mfa` CLI command.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Claim fully corroborated by primary source. The official MFA models documentation page (https://mfa-models.readthedocs.io/en/latest/g2p/Ukrainian/Ukrainian%20MFA%20G2P%20model%20v3_0_0.html) documents the \"Ukrainian MFA G2P model v3.0.0\" and the verbatim install command \"mfa model download g2p ukrainian_mfa\". The Ukrainian G2P index confirms ukrainian_mfa is an official model family with versions v2.0.0, v2.0.0a, and v3.0.0, all using the MFA phoneset (CC BY 4.0). The command matches MFA's documented pattern \"mfa model download g2p <model_name>\", and downloading by bare name \"ukrainian_mfa\" resolves to the latest (v3.0.0). The supporting quote accurately reflects the claim with no overreach. Source is the official, current (docs build 3.1.2) MFA documentation — appropriate primary-source quality. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Direct WebFetch of the primary source (https://mfa-models.readthedocs.io/en/latest/mfa_phone_set.html) returns the exact mappings claimed: \"Velar and alveolar soft consonants are represented as palatal: [kʲ]→[c], [ɦʲ]→[ç], [xʲ]→[ʝ], [nʲ]→[ɲ], [lʲ]→[ʎ].\" The supporting quote matches the page verbatim, not an overreach. The mapping is linguistically sound: c, ç, ʝ, ɲ, ʎ are precisely the true-palatal IPA counterparts of palatalized velars/alveolars (standard phonetic equivalence per IPA palatal series c/ɟ/ç/ʝ/ɲ/ʎ). Source is the official authoritative MFA models doc that defines the phone set, so source quality matches the claim strength. Minor caveat: the claim asserts these are \"the exact phone symbols a parser will encounter in Ukrainian TextGrid output\" — actual output depends on the specific Ukrainian dictionary/model version, but the documented mappings themselves are exactly supported. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "CONFIRMED, not refuted. The primary source (official MFA models docs at mfa-models.readthedocs.io) explicitly states the install command \"mfa model download g2p ukrainian_mfa\" on the Ukrainian MFA G2P model v3.0.0 page. The model name \"ukrainian_mfa\" follows MFA's standard lowercase identifier convention (cf. english_us_mfa). The Ukrainian G2P index page lists three versions (v2_0_0, v2_0_0a, v3_0_0), confirming v3.0.0 exists. The model uses the MFA phone set and \"Pronunciations generated with this G2P model can be appended and used when aligning or transcribing\" — confirming it generates pronunciations from Ukrainian text. The official MFA user guide corroborates the general \"mfa model download g2p <name>\" workflow (models land in ~/Documents/MFA/pretrained_models/). Source quality is high (official primary documentation), claim is current (v3.0.0 is the latest), and the quote directly supports the claim. Minor note: the human-readable page title is \"Ukrainian MFA G2P model v3_0_0\" while the install identifier is \"ukrainian_mfa\" — both are correct and refer to the same model; this is not a contradiction. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Verbatim fetch of the primary source (https://mfa-models.readthedocs.io/en/latest/mfa_phone_set.html) independently confirms the claim. Under \"Ukrainian consonants → Palatalization: Velar and alveolar soft consonants are represented as palatal\" the page lists exactly: [kʲ]→[c], [ɦʲ]→[ç], [xʲ]→[ʝ], [nʲ]→[ɲ], [lʲ]→[ʎ]. All five mappings and the soft→palatal direction match the claim precisely. The page references the Ukrainian MFA dictionary v2.0.0 IPA charts, confirming these symbols are what the model/dictionary use (and thus appear in TextGrid phone tiers). Source is the official MFA models documentation (primary, current \"latest\" version), appropriately matching the technical claim's strength. No contradicting source found; general linguistics literature corroborates that Ukrainian has palatalized consonants (e.g., nʲ, lʲ), and MFA documents rendering them as their fully palatal equivalents. Minor caveat: the same Ukrainian section also documents dental diacritics [t̪ s̪ ...] and trill realization (/ʝ/→[ɾ]), so a parser encounters more symbols than just these five, but this does not contradict the specific mapping claim, which is accurate.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (MFA models docs, Ukrainian MFA G2P model v3.0.0) verbatim confirms every element of the claim. The page states \"Phones: 87\", \"Graphemes: 34\", and \"Words: 58,496\" under training data, says the model \"uses the MFA phone set for Ukrainian,\" and describes it as \"trained from the pronunciation dictionaries\" (the Ukrainian MFA dictionary). All four claimed facts (MFA Ukrainian phone set, 87 phones, 34 graphemes, trained from Ukrainian MFA pronunciation dictionaries) match the official documentation exactly. No overreach: the claim's phrasing \"phone inventory of 87 phones\" accurately reflects the model's phone set size. Source is the authoritative first-party MFA documentation — appropriate quality for this factual claim. The v3.0.0 version is current. Note as caveat (not refuting): the same page reports WER/PER of 100% which is likely a docs placeholder/error, but this does not affect the verified facts in the claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified against the primary source (official MFA models docs, the exact URL cited). Two independent WebFetch passes both returned: Phones = 87, Graphemes = 34, phone set = \"MFA phone set for Ukrainian\", and \"was trained from the pronunciation dictionaries above\" (the Ukrainian MFA dictionary v3.0.0). Additional consistent detail: trained on 58,496 words, evaluated on 6,499 held-out words. Every sub-claim (87 phones, 34 graphemes, MFA Ukrainian phone set, trained from Ukrainian MFA pronunciation dictionaries) matches the source exactly. No overreach, no conflation. Source is the authoritative primary documentation, matching the claim's strength. The supporting quote accurately reflects page content. No contradicting source found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is directly supported by the primary MFA documentation (first_steps/index.html), which states: \"the core requirement is that you should have pairs of sound files and transcription files with the same name (except for the extension).\" This is the canonical, official, current (3.X) documentation — appropriate source quality for the claim. Corroborated by independent sources: Eleanor Chodroff's Corpus Phonetics Tutorial and the MFA corpus_structure docs both confirm that for alignment, every audio file must have a corresponding .lab/.txt/.txtGrid transcription file. The distinction is also conceptually sound: forced alignment (mfa align) aligns a KNOWN transcript to audio at the phone level, which inherently requires the transcript. MFA's separate `mfa transcribe` command exists precisely because alignment cannot run without a transcript — confirming that to use MFA's alignment workflow on Ukrainian podcast audio, a transcript (e.g., from Whisper) must first be generated. The claim is well-supported, current, primary-sourced, and not an overreach of the quote. The supporting quote and the claim are semantically identical.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Claim is fully supported by primary MFA documentation and matches the definitional nature of \"forced alignment.\" The latest docs (corpus_structure.html, first_steps/index.html) state the core requirement is \"pairs of sound files and transcription files with the same name (except for the extension).\" Docs further specify \"Every audio file you are aligning must have a corresponding .lab file containing the text transcription... If no .lab file is found, then the aligner will look for any matching .txt files,\" and that MFA \"will time-align a transcript to a corresponding audio file at the phone and word levels provided there exist... pretrained acoustic models and a lexicon/dictionary.\" Forced alignment (vs. ASR) is by definition the task of aligning a KNOWN transcript to audio, so a transcript is inherently required — corroborated independently by the Eleanor Chodroff Corpus Phonetics Tutorial and the MFA Interspeech 2017 paper. This directly justifies the research question's premise of generating a transcript via Whisper first. No contradicting source found; the quote does not overreach. Source quality (official primary docs + peer-reviewed paper) matches the claim's modest, factual strength.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is directly supported by the primary source (MFA readthedocs first_steps page), which displays verbatim: \"mfa model download acoustic english_us_arpa\", \"mfa model download dictionary english_us_arpa\", and \"mfa model download g2p english_us_arpa\". The general syntax \"mfa model download <model_type> <model_name>\" with model_type in {acoustic, dictionary, g2p} is corroborated by independent sources: the official Pretrained Models user guide (montreal-forced-aligner.readthedocs.io/en/latest/user_guide/models), the eleanorchodroff.com Corpus Phonetics tutorial, and gadanidis.ca's MFA workflow blog. The supporting quote matches the page exactly with no overreach; the claim is a faithful restatement. Source is the authoritative primary documentation, current (latest docs, MFA 3.x), and the claim is a low-stakes factual statement about CLI syntax well-matched to source strength.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is verbatim supported by the primary source. WebFetch of the official MFA docs (montreal-forced-aligner.readthedocs.io/en/latest/first_steps/index.html) returns exactly: 'mfa model download acoustic english_us_arpa', 'mfa model download dictionary english_us_arpa', and 'mfa model download g2p english_us_arpa'. The general syntax 'mfa model download {acoustic|dictionary|g2p|ivector|language_model|tokenizer} [MODEL_NAME]' is independently corroborated by the official user guide (readthedocs models/index.html) and tutorials (eleanorchodroff.com, lingmethodshub.github.io). Source is the authoritative primary documentation for a current, actively maintained tool (MFA v2/v3). No contradicting evidence found; claim quality matches source strength. Note: this verifies only the download-command mechanism, not the existence of a Ukrainian-named model, which is a separate claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is well-supported and current. The primary source (MFA readthedocs first_steps) directly states corpora need \"pairs of sound files and transcription files with the same name (except for the extension)\" — the quote is verbatim and the claim faithfully restates it (no overreach). Forced alignment is by definition the time-alignment of a known transcript to audio, so a transcript is intrinsically required; MFA aligns a transcript to audio at phone/word levels using a pronunciation dictionary plus acoustic models. Multiple independent sources corroborate: Eleanor Chodroff's Corpus Phonetics tutorial and the MFA Interspeech 2017 paper both describe MFA as aligning \"orthographically transcribed audio files,\" and confirm transcript files (.lab/.txt/.TextGrid) must share the audio filename minus extension. The source is the official primary documentation, matching the claim's strength. Note: MFA's separate `mfa transcribe` command does ASR, but that is not forced alignment, so it does not contradict the claim. This is the standard rationale for pairing Whisper (to produce a transcript) with MFA in the research workflow. No contradicting credible source found; not outdated; not marketing.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is verbatim supported by the primary source (MFA official ReadTheDocs first_steps page). WebFetch of the source confirms the exact commands: \"mfa model download acoustic english_us_arpa\", \"mfa model download dictionary english_us_arpa\", and \"mfa model download g2p english_us_arpa\". The general syntax \"mfa model download [model_type] [model_name]\" where model_type is acoustic/dictionary/g2p is documented. This is independently corroborated by multiple credible tutorials (eleanorchodroff.com, lingmethodshub.github.io, scott-nelson.net, gadanidis.ca) which all show identical command patterns. The MFA Pretrained models docs confirm downloaded models go to ~/Documents/MFA/pretrained_models/. Source is the primary tool's own current (3.X) documentation — appropriate quality and currency for this routine, non-extraordinary claim. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is fully supported by primary sources. The MFA first_steps docs (https://montreal-forced-aligner.readthedocs.io/en/latest/first_steps/index.html) contain the exact example verbatim: \"mfa align ~/mfa_data/my_corpus english_us_arpa english_us_arpa ~/mfa_data/my_corpus_aligned\". The MFA alignment workflow reference confirms the positional argument order matches the claim exactly: \"mfa align [OPTIONS] CORPUS_DIRECTORY DICTIONARY_PATH ACOUSTIC_MODEL_PATH OUTPUT_DIRECTORY\". So the claim's description of the four arguments (corpus directory, dictionary, acoustic model, output directory) and the example command are both accurate and current (latest docs). No contradicting evidence found; source is the official primary documentation, which is appropriate strength for a CLI-syntax claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary source (MFA first_steps docs) contains the verbatim example: \"mfa align ~/mfa_data/my_corpus english_us_arpa english_us_arpa ~/mfa_data/my_corpus_aligned\". The positional argument order claimed (corpus directory, dictionary, acoustic model, output directory) is independently confirmed by the official MFA CLI alignment reference (montreal-forced-aligner.readthedocs.io/en/stable/user_guide/workflows/alignment.html), which lists positional args as CORPUS_DIRECTORY DICTIONARY_PATH ACOUSTIC_MODEL_PATH OUTPUT_DIRECTORY. The duplicate \"english_us_arpa\" is correct because english_us_arpa is the name of both a pronunciation dictionary (position 2) and an acoustic model (position 3). The claim accurately describes both the syntax/order and quotes the example correctly; no contradicting source found. The order has been stable across MFA v2.x and v3.x.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is fully supported by the primary source (AWS Polly docs). The viseme.html page verbatim states: \"A viseme... is the visual equivalent of a phoneme\" and \"Each language has a set of viseme that correspond to their specific phonemes.\" It presents a chart with explicit IPA and X-SAMPA columns mapping symbols to visemes (e.g. IPA b / X-SAMPA b -> viseme p; IPA d -> viseme t; IPA d͡ʒ / dZ -> viseme S). A separate AWS page, \"Phoneme and Viseme Tables for Supported Languages\" (ref-phoneme-tables-shell.html), confirms per-language viseme sets exist with dedicated pages for English (US), Spanish (US), Polish, Japanese, Mandarin, etc., each carrying IPA/X-SAMPA + viseme columns. This is a current, official primary source matching the claim's modest strength. The only minor nuance (not contradicting the claim) is that for some languages like Mandarin, IPA/X-SAMPA are \"for reference only\" and Pinyin is used natively — but the mapping data still exists and is usable as a reference, exactly as claimed. No credible source disputes this. The claim is well-supported, current, and primary-sourced.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "All elements of the claim are directly verified against the primary AWS source (https://docs.aws.amazon.com/polly/latest/dg/viseme.html). The page states verbatim: \"A viseme represents the position of the face and mouth when saying a word. It is the visual equivalent of a phoneme.\" It explicitly says \"Each language has a set of viseme that correspond to their specific phonemes,\" confirming per-language viseme sets, and directs to per-language tables (confirmed real: ph-table-english-us.html, ph-table-polish.html, ph-table-russian.html, ph-table-icelandic.html, etc.). The mapping chart contains columns for IPA, X-SAMPA, Description, Example, and Viseme (e.g., IPA b / X-SAMPA b -> viseme p; IPA d -> viseme t; IPA d͡ʒ -> viseme S), confirming IPA + X-SAMPA -> viseme mappings. The \"usable as a reference\" characterization is accurate — AWS publishes these as standing reference tables, also exposed via the SpeechMarks viseme type. No contradicting source found; documentation is current and primary. Minor non-refuting nuance: Polly's viseme labels (p, t, S, T, f, k, etc.) are an Oculus/Annosoft-style set, NOT the Preston Blair set, but the claim does not assert Preston Blair equivalence, so this does not refute it.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary AWS source (docs.aws.amazon.com/polly/latest/dg/viseme.html) verbatim confirms every part of the claim. It states: \"A viseme... is the visual equivalent of a phoneme\" and \"The following chart shows a partial list of International Phonetic Alphabet (IPA) phonemes and Extended Speech Assessment Methods Phonetic Alphabet (X-SAMPA) symbols as well as their corresponding visemes for US English voices.\" Per-language viseme sets are confirmed by the page text \"Each language has a set of viseme that correspond to their specific phonemes\" plus the linked \"Phoneme and Viseme Tables for Supported Languages\" page (docs.aws.amazon.com/polly/latest/dg/ref-phoneme-tables-shell.html), which provides IPA/X-SAMPA-to-viseme tables for each supported language (e.g., ph-table-english-us.html). The example mapping (b->p, d->t, dʒ->S, ð->T, f->f, g->k, h->k) shows the actual IPA->viseme reference. Source is official primary AWS documentation, matching the claim's strength; no contradicting source found. Minor nuance (not refuting): the chart embedded on viseme.html itself is US-English-only, with per-language tables on a separate linked page — but the claim's assertion of per-language sets remains accurate.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is verbatim-supported by the primary source. WebFetch of the cited URL (montreal-forced-aligner.readthedocs.io/en/latest/first_steps/index.html) confirms the exact command \"mfa align ~/mfa_data/my_corpus english_us_arpa english_us_arpa ~/mfa_data/my_corpus_aligned\" appears in the docs, with positional argument order: corpus directory, dictionary, acoustic model, output directory. This matches the canonical MFA CLI signature \"mfa align corpus_directory dictionary_path acoustic_model_path output_directory\" documented across all MFA versions (v2.0.0, v2.1.7, v3.0.0, v3.2.3, and latest) at the user_guide/workflows/alignment.html pages. The repeated token \"english_us_arpa\" is correct, not a typo: MFA distributes both a pronunciation dictionary AND an acoustic model under that same name, so it legitimately fills both positions. Primary, official, current source; CLI signature is stable and not contradicted by any source found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": true,
+    "evidence": "The AWS primary source (https://docs.aws.amazon.com/polly/latest/dg/viseme.html) FULLY CONFIRMS the factual mappings and grouping rationale: the table shows b->p, d->t, d͡ʒ (dZ)->S, ð (D)->T, f->f, g->k, h->k, and states \"not all visemes can be mapped to a particular phoneme because numerous phonemes appear the same when spoken... pet and bet ... look exactly the same.\" So part one of the claim is accurate.\n\nBUT the claim's second assertion — that this \"is the Oculus-style viseme naming scheme rather than Preston Blair\" — is UNSUPPORTED and incorrect. The actual Oculus/OVRLipSync viseme set (per Meta/Oculus docs, developers.meta.com / developer.oculus.com viseme reference) uses 15 names: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou. Polly's codes (p, t, S, T, f, k, ...) do NOT match Oculus's codes (PP, DD, TH, kk, ...). AWS docs nowhere state Polly follows Oculus naming. Polly's single/short-character viseme codes are their own convention (an X-SAMPA/Annosoft-style set), not the Oculus scheme. The claim conflates \"groups phonemes into shared visemes\" (a general property true of both Polly and Oculus) with \"uses Oculus naming,\" which is false. The accurate negative (\"not Preston Blair\") is correct, but the positive attribution to Oculus is wrong.",
+    "confidence": "high",
+    "counterSource": "https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/ (Oculus/Meta OVRLipSync viseme reference: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou — names that do not match Polly's p/t/S/T/f/k codes)"
+  },
+  {
+    "refuted": false,
+    "evidence": "Every component of the claim is verbatim-confirmed by the AWS primary docs (docs.aws.amazon.com/polly/latest/dg/output.html and using-speechmarks.html). The output page states: \"Amazon Polly returns speech mark objects in a line-delimited JSON stream. A speech mark object contains the following fields: time – the timestamp in milliseconds from the beginning of the corresponding audio stream; type – the type of speech mark (sentence, word, viseme, or ssml); start...; end...; value – this varies depending on the type of speech mark... viseme: the viseme name\". A concrete example is given: {\"time\":373,\"type\":\"word\",\"start\":5,\"end\":8,\"value\":\"had\"}. The using-speechmarks page confirms 'viseme' is a requestable type (\"--speech-mark-types='[\\\"sentence\\\", \\\"word\\\", \\\"viseme\\\", \\\"ssml\\\"]'\"). All four claimed properties (line-delimited JSON, time in ms from audio start, type including 'viseme', value = viseme name) are exact matches. The \"directly usable for frame timecodes\" portion is a trivially valid inference (ms/1000 x fps). Source is the canonical primary spec for the API; current (live docs, June 2026); not marketing. No grounds for refutation.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Every component of the claim is confirmed verbatim by the primary AWS Polly documentation (https://docs.aws.amazon.com/polly/latest/dg/output.html). The page states: \"Amazon Polly returns speech mark objects in a line-delimited JSON stream. A speech mark object contains the following fields: time – the timestamp in milliseconds from the beginning of the corresponding audio stream; type – the type of speech mark (sentence, word, viseme, or ssml); start/end – byte offsets; value – ... viseme: the viseme name.\" A concrete example line is given: {\"time\":373,\"type\":\"word\",\"start\":5,\"end\":8,\"value\":\"had\"} — a viseme line follows the same schema with value=viseme name. The using-speechmarks.md page confirms 'viseme' is a requestable SpeechMarkType. The downstream assertion \"directly usable for converting to frame timecodes\" is a trivial, accurate inference (ms × fps / 1000 = frame number); not an overreach. Claim matches primary source word-for-word; no contradicting evidence exists for a stable, vendor-documented API format.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary AWS source (ph-table-english-us.html) fully confirms every specific code in the claim. The \"Viseme\" column uses single-character codes. Consonants: p (b/m/p), t (d/n/t), S (dʒ/ʃ/tʃ/ʒ), T (ð/θ), f (f/v), k (g/h/k/ŋ), i (j), l (l), r (ɹ), s (s/z), u (w) — all 11 claimed consonant codes verified. Vowels: @ (ə/ɚ), a (æ/aɪ/aʊ/ɑ), e (eɪ), E (ɝ/ɛ/ʌ), i (i/ɪ), o (oʊ), O (ɔ/ɔɪ), u (u/ʊ) — all 8 claimed vowel codes verified. The supporting quote matches the page header verbatim. The page also confirms IPA and X-SAMPA columns exist as claimed. Source is primary, authoritative, and currently live. Minor nuance: the AWS page does NOT itself use the label \"Oculus/Polly viseme scheme\" — that attribution is industry-common (the codes derive from/align with the Oculus LipSync viseme standard) but is parenthetical characterization, not part of the factual mapping data, so it does not undermine the claim. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary AWS source (https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html) confirms every assertion. The en-US phoneme/viseme table maps IPA/X-SAMPA to single-character viseme codes exactly as claimed. CONSONANT visemes all present: p (b,m,p), t (d,n,t), S (dʒ,ʃ,tʃ,ʒ), T (ð,θ), f (f,v), k (g,h,k,ŋ), i (j), l (l), r (ɹ), s (s,z), u (w) — all 11 claimed codes verified. VOWEL visemes all present: @ (ə,ɚ), a (æ,aɪ,aʊ,ɑ), e (eɪ), E (ɝ,ɛ,ʌ), i (i,ɪ), o (oʊ), O (ɔ,ɔɪ), u (u,ʊ) — all 8 claimed codes verified. Supporting quote matches the page verbatim. These single-char codes are the documented Oculus/Polly viseme scheme. No contradicting source found; AWS docs are the authoritative primary source for their own product, so source quality matches claim strength. The 'Oculus' label is well-established (Polly adopted the Oculus LipSync viseme set). Claim is current — this table is the live AWS docs page.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The primary AWS source (https://docs.aws.amazon.com/polly/latest/dg/output.html) verifies every element of the claim verbatim. It states: \"Amazon Polly returns speech mark objects in a line-delimited JSON stream. A speech mark object contains the following fields: time – the timestamp in milliseconds from the beginning of the corresponding audio stream; type – the type of speech mark (sentence, word, viseme, or ssml); ... value – this varies depending on the type of speech mark ... viseme: the viseme name.\" The doc gives a concrete example object: {\"time\":373,\"type\":\"word\",\"start\":5,\"end\":8,\"value\":\"had\"}, confirming the flat JSON structure with time/type/value fields. So: line-delimited JSON (confirmed), 'time' in ms from audio start (confirmed), 'type' includes 'viseme' (confirmed), 'value' holds the viseme name for viseme-type marks (confirmed). The trailing assertion \"directly usable for converting to frame timecodes\" is a trivially valid inference, since a millisecond timestamp maps to a frame via frame = round(ms/1000 * fps); not an overreach. Source is primary (official AWS docs), current, and non-marketing. No credible contradicting evidence is plausible for a documented API contract.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "Verified directly against the primary AWS Polly en-US phoneme/viseme table (https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html). Every mapping in the claim matches the table's Viseme column exactly: (1) b→p, m→p, p→p; (2) d→t, n→t, t→t; (3) ɡ→k, h→k, k→k, ŋ→k; (4) d͡ʒ→S, ʃ→S, t͡ʃ→S, ʒ→S. The core assertion — that multiple distinct phonemes collapse to a single viseme — is fully and correctly supported by the authoritative primary source. One minor inaccuracy: the claim labels /h/ as \"velar\" when AWS describes it as a \"voiceless glottal fricative\" — but /h/ does in fact map to viseme 'k' as claimed, so the viseme conclusion is unaffected; only the phonetic category label is loose. This does not refute the substantive claim.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The AWS Polly en-US Phoneme/Viseme Table (primary source, fetched directly) confirms every mapping in the claim verbatim. Bilabials: b→p, m→p, p→p. Alveolars: d→t, n→t, t→t. Velars: ɡ→k, h→k, k→k, ŋ(N)→k. Postalveolars: d͡ʒ(dZ)→S, ʃ(S)→S, t͡ʃ(tS)→S, ʒ(Z)→S. All 15 phoneme→viseme assignments match the claim exactly. The thesis that distinct phonemes collapse to shared visemes is standard, well-documented animation/phonetics fact (a viseme set is intentionally smaller than the phoneme set). One minor imprecision: the table lists /h/ as a glottal fricative, not strictly velar, but the claim's grouping is descriptive labeling and the actual viseme-value assertion (h→k) is correct. Source is the authoritative AWS documentation, current and matching the claim's strength.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": true,
+    "evidence": "The claim's factual mappings are correct: the AWS Polly viseme doc (https://docs.aws.amazon.com/polly/latest/dg/viseme.html) confirms exactly b->p, d->t, d͡ʒ(dZ)->S, ð(D)->T, f->f, g->k, h->k, and the quoted rationale (\"numerous phonemes appear the same when spoken... pet and bet... look exactly the same\"). However, the load-bearing characterization — \"this is the Oculus-style viseme naming scheme rather than Preston Blair\" — is unsupported and contradicted. (1) The AWS source never mentions \"Oculus\" or \"Preston Blair\" at all; the doc describes its labels only as IPA/X-SAMPA-based visemes. The attribution is the claimant's own, not the source's. (2) It is factually contradicted by Meta's official Oculus OVR LipSync Viseme Reference (developers.meta.com/horizon/documentation/.../audio-ovrlipsync-viseme-reference), whose 15 viseme names are: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou. These bear no resemblance to Polly's single-character codes (p, t, S, T, f, k, etc.). Polly's labels are representative-phoneme/X-SAMPA-style single-letter codes, NOT the Oculus 15-viseme naming scheme. So Polly's scheme is neither Oculus nor Preston Blair — it is its own X-SAMPA-derived set, and the \"Oculus-style\" label is a mischaracterization.",
+    "confidence": "high",
+    "counterSource": "https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/ (actual Oculus viseme names: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou — none match Polly's p/t/S/T/f/k). Also the AWS source itself (viseme.html) never uses the terms \"Oculus\" or \"Preston Blair\"."
+  },
+  {
+    "refuted": true,
+    "evidence": "The factual mapping in the claim is correct (verified at https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html: b->p, d->t, d͡ʒ->S, ð->T, f->f, ɡ->k, h->k), as is the \"phonemes appear the same when spoken\" quote. BUT the strong attribution — \"this is the Oculus-style viseme naming scheme rather than Preston Blair\" — is REFUTED on two grounds: (1) UNSUPPORTED BY SOURCE: The cited AWS Polly doc (viseme.html and the en-US phoneme table) never mentions \"Oculus\" or \"Preston Blair.\" The provided supporting quote only establishes the generic concept that multiple phonemes can share one viseme — it says nothing about naming schemes. (2) CONTRADICTED BY FACT: The actual Oculus/OVRLipSync viseme set is 15 named visemes — sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou (https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/). Polly's viseme codes are entirely different: single-character IPA/X-SAMPA-derived symbols (p, t, S, T, f, k, i, l, r, s, u, @, a, e, E, o, O). Polly uses NEITHER the Oculus PP/FF/TH/kk names NOR Preston Blair labels — it is its own IPA/X-SAMPA-style scheme. The many-phonemes-to-one-viseme grouping is a universal property of viseme systems (Preston Blair's ~12 Disney shapes also collapse many phonemes), not something that makes Polly \"Oculus-style.\" The claim conflates a generic viseme property with a specific, incorrect naming-scheme attribution.",
+    "confidence": "high",
+    "counterSource": "https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/ (Oculus viseme names: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou — which differ entirely from Polly's p/t/S/T/f/k codes); https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html (Polly's actual single-char IPA/X-SAMPA-derived viseme codes, no mention of Oculus or Preston Blair)"
+  },
+  {
+    "refuted": false,
+    "evidence": "The cited primary AWS Polly en-US Phoneme/Viseme Table (https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html) was fetched and contains an explicit Viseme column. Every mapping in the claim matches the table exactly: bilabials b→p, m→p, p→p; alveolars d→t, n→t, t→t; velar group ɡ→k, h→k, k→k, ŋ→k; postalveolars d͡ʒ→S, ʃ→S, t͡ʃ→S, ʒ→S. The supporting quote (b/m/p all viseme p) is verbatim accurate. The page itself states many phonemes look identical visually (e.g. 'pet' vs 'bet'), corroborating the many-to-one collapse. Source is authoritative primary documentation matching the claim's strength. Minor nit only: the claim labels /h/ a 'velar' when it is articulatorily glottal, but its Polly viseme assignment is indeed 'k', so the viseme grouping itself is correct.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "confidence": "high",
+    "refuted": false,
+    "evidence": "The primary source (Meta Horizon OS developer docs, the exact cited URL https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/) fully supports the claim. WebFetch of that URL confirmed: 15 visemes total, based on the MPEG-4 standard, with exact names and phoneme mappings: sil (neutral), PP (p,b,m), FF (f,v), TH (th), DD (t,d), kk (k,g), CH (tS,dZ,S), SS (s,z), nn (n,l), RR (r), aa (A:), E (e), I/ih, O/oh, U/ou. An independent WebSearch corroborated the same 15-viseme set and MPEG-4 standard basis, additionally noting the visemes are language-agnostic. The claim is well-supported, current, and from the authoritative first-party source. Minor cosmetic note: the claim writes the last three as 'I (ih), O (oh), U (ou)' — the docs list both formal names (I, O, U) and colloquial labels (ih, oh, ou), so this is accurate, not an overreach.</parameter>\n<parameter name=\"counterSource\">"
+  },
+  {
+    "refuted": false,
+    "evidence": "Primary source (Meta Horizon developer docs, the exact URL cited) directly confirms the claim. WebFetch of https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/ returns the identical 15-viseme table: sil=neutral, PP=p,b,m; FF=f,v; TH=th; DD=t,d; kk=k,g; CH=tS,dZ,S; SS=s,z; nn=n,l; RR=r; aa=A:; E=e; I=ih; O=oh; U=ou — matching the supporting quote verbatim. WebSearch corroborates: \"OVR LipSync maps to 15 separate viseme targets: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, and ou\" and confirms the MPEG-4 basis. The source is the authoritative first-party vendor (Meta), which is the highest-quality source possible for this factual claim about Meta's own product. No contradicting evidence found. Minor labeling nuance: the underlying blend-shape strings are lowercase (ih/oh/ou) while display labels are I/O/U, but the claim's parenthetical notation \"I (ih), O (oh), U (ou)\" correctly captures both forms. Claim is not outdated, not marketing fluff, and not an overreach of the quote.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "confidence": "high",
+    "refuted": false,
+    "evidence": "Fully supported by the cited primary source (Meta Horizon OS Developers, official OVR LipSync Viseme Reference). WebFetch of the URL returns exactly 15 visemes based on the MPEG-4 Facial Animation standard with this list/mapping: sil (neutral/silence), PP (p,b,m), FF (f,v), TH (th), DD (t,d), kk (k,g), CH (tS,dZ,S), SS (s,z), nn (n,l), RR (r), aa (A:), E (e), I (ih), O (oh), U (ou). Count (15), MPEG-4 basis, names, and every phoneme grouping match the supporting quote verbatim. WebSearch independently corroborates via Meta Unity/Unreal/native docs, the GitHub OVRLipSync VisemeGenerationActor.h source, and Ready Player Me, all listing the same 15 identifiers. The claim's notation 'I (ih), O (oh), U (ou)' correctly captures that the formal viseme names are I/O/U while their mapped phoneme tokens are ih/oh/ou — both forms appear in Meta's docs, so it is not a misread. Authoritative primary source matching the claim's strength; no contradicting or qualifying evidence found.</parameter>\n</invoke>\n"
+  },
+  {
+    "refuted": false,
+    "evidence": "The substantive claim is exactly confirmed by the primary AWS source (https://docs.aws.amazon.com/polly/latest/dg/ph-table-english-us.html). The full table verifies: Polly maps IPA/X-SAMPA phonemes to single-character viseme codes for en-US. Consonants confirmed: b/m/p->p, d/n->t, dZ/tS/S/Z->S, D->T, f/v->f, g/h/k/N->k, j->i, l->l, r\\\\->r, s/z->s, w->u. Vowels confirmed: schwa/r-colored->@, ae/aI/aU/A->a, eI->e, 3`/E/V->E, i/I->i, oU->o, O/OI->O, u/U->u. Every code listed in the claim (p,t,S,T,f,k,i,l,r,s,u and @,a,e,E,i,o,O,u) appears in the table. The supporting quote is verbatim accurate. ONE inaccuracy: the parenthetical label '(the Oculus/Polly viseme scheme)'. AWS never names its scheme 'Oculus.' The actual Oculus OVR LipSync set uses 15 different codes (sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou per developers.meta.com viseme reference), which are entirely different strings from Polly's single-char codes. So Polly's scheme is NOT the Oculus scheme; they are separate and require a mapping between them. This is a minor mislabel, not a contradiction of the verified mapping data, so the core claim stands. The data part (what matters for a phoneme->viseme mapping table) is fully primary-sourced and current (AWS docs, actively maintained).",
+    "confidence": "high",
+    "counterSource": "https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/ (shows Oculus OVR uses sil/PP/FF/TH/DD/kk/CH/SS/nn/RR/aa/E/ih/oh/ou, NOT Polly's single-char codes); https://docs.aws.amazon.com/polly/latest/dg/viseme.html (Polly never calls its scheme 'Oculus')"
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is a verbatim, accurate restatement of the primary source. Meta's official Oculus Lipsync Viseme Reference (developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference) states verbatim: \"Oculus Lipsync maps human speech to a set of mouth shapes, called 'visemes', which are a visual analog to phonemes. Each viseme depicts the mouth shape for a specific set of phonemes.\" The claim reproduces this with no distortion. The definition of a viseme as a visual counterpart to a phoneme is also standard, uncontested industry consensus (corroborated by VRChat Wiki, Ready Player Me, and the broader literature). The source is the authoritative first-party vendor documentation for the exact technology named in the claim — source quality matches the claim's strength. The technology (15 visemes: sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou) is still current and documented on Meta's live developer site. No credible source disputes or qualifies this definitional statement; nothing about it is a cherry-picked benchmark or marketing puffery — it is a neutral technical definition.",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is a verbatim restatement of the primary Meta Horizon developer documentation, confirmed by direct fetch: \"Oculus Lipsync maps human speech to a set of mouth shapes, called 'visemes', which are a visual analog to phonemes\" and \"Each viseme depicts the mouth shape for a specific set of phonemes.\" The claim wording matches the quote exactly (no overreach). The underlying concept is independently corroborated by multiple credible sources: VRChat Wiki, CryEngine 3 Manual, Autodesk Softimage User's Guide, and academic literature (ResearchGate \"Phoneme and Viseme based Approach for Lip Synchronization\"). The many-phonemes-to-one-viseme relationship (e.g., p/b/m share a closed-lip viseme) is standard, undisputed animation/speech-science knowledge dating back to Disney/Preston Blair. The only nuance is \"OVR LipSync\" vs \"Oculus Lipsync\" naming — these are the same SDK (OVR = Oculus VR), so no discrepancy. This is a foundational definitional claim, not an extraordinary/marketing/benchmark claim, and the primary source quality matches the claim strength. Not outdated (definition is stable).",
+    "confidence": "high",
+    "counterSource": ""
+  },
+  {
+    "refuted": false,
+    "evidence": "The claim is verbatim-supported by the primary source. WebFetch of the official Meta/Oculus page (https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/) returned the exact text: \"Oculus Lipsync maps human speech to a set of mouth shapes, called 'visemes', which are a visual analog to phonemes. Each viseme depicts the mouth shape for a specific set of phonemes.\" The claim (\"OVR LipSync maps speech to mouth shapes called visemes, which are a visual analog to phonemes, with each viseme depicting the mouth shape for a specific set of phonemes\") is a faithful paraphrase with no overreach. The concept is corroborated by independent sources (VRChat Wiki, ResearchGate paper on viseme sets) and the docs give a concrete example (/b/, /p/, /m/ map to one viseme). Source is the authoritative primary vendor doc, matching the claim's modest, definitional strength. Not a marketing/benchmark claim — it is a technical definition. The 15-viseme set (sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou) remains current. No contradicting evidence found.",
+    "confidence": "high",
+    "counterSource": ""
+  }
+]

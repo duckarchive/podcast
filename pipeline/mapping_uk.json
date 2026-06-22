@@ -1,0 +1,32 @@
+{
+  "_comment": "Ukrainian MFA IPA phone -> Rhubarb mouth shape (A-F basic, G/H/X extended). Phones are normalized first (length 'ː', palatalization 'ʲ', and combining diacritics like dental '̪' and affricate tie bars are stripped) before lookup, so e.g. 'bʲ','bː','b' all resolve via base 'b'. Edit freely to taste.",
+  "shapes": {
+    "A": "Closed mouth (P/B/M)",
+    "B": "Clenched teeth (most consonants + EE-class)",
+    "C": "Open mouth (EH/AE)",
+    "D": "Wide open mouth (AA)",
+    "E": "Rounded mouth (AO/ER)",
+    "F": "Puckered lips (UW/OW/W)",
+    "G": "Upper teeth on lower lip (F/V)",
+    "H": "L shape",
+    "X": "Idle / rest (silence, pauses)"
+  },
+  "silence_labels": ["", "sil", "sp", "spn", "<eps>", "silence"],
+  "phone_to_shape": {
+    "b": "A", "p": "A", "m": "A",
+    "f": "G", "ʋ": "G", "v": "G",
+    "l": "H", "ʎ": "H",
+    "u": "F", "ʊ": "F", "w": "F",
+    "o": "E", "ɔ": "E",
+    "ɑ": "D", "ɐ": "D", "a": "D",
+    "ɛ": "C", "e": "C",
+    "i": "B", "ɪ": "B", "j": "B",
+    "t": "B", "d": "B", "n": "B",
+    "s": "B", "z": "B", "ts": "B", "dz": "B",
+    "k": "B", "ɡ": "B", "g": "B", "x": "B", "ɦ": "B", "h": "B",
+    "c": "B", "ç": "B", "ʝ": "B", "ɲ": "B",
+    "ɾ": "B", "r": "B",
+    "tʃ": "B", "dʒ": "B", "ʃ": "B", "ʒ": "B"
+  },
+  "default_shape": "B"
+}

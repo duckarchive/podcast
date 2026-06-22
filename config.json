@@ -1,0 +1,17 @@
+{
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "end_padding": 0.1,
+  "phonemes": {
+    "A": "./mouth/lisa-A.png",
+    "B": "./mouth/lisa-B.png",
+    "C": "./mouth/lisa-C.png",
+    "D": "./mouth/lisa-D.png",
+    "E": "./mouth/lisa-E.png",
+    "F": "./mouth/lisa-F.png",
+    "G": "./mouth/lisa-G.png",
+    "H": "./mouth/lisa-H.png",
+    "X": "./mouth/lisa-X.png"
+  }
+}
