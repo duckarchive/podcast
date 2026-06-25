@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Run Montreal Forced Aligner over a (wav, transcript) pair to get a phone-level TextGrid.
+"""Run Montreal Forced Aligner to get a phone-level TextGrid.
 
 MFA lives in its own conda env ('aligner'); we invoke it via `conda run` so the orchestrator
-can run under any Python. A temporary single-file corpus is assembled (wav + matching .lab).
+can run under any Python. Two corpus shapes are supported:
+
+  align()          — wav + .lab transcript  (one short utterance)
+  align_segments() — wav + input .TextGrid   (long audio pre-segmented into utterances)
 """
 
 from __future__ import annotations
@@ -18,41 +21,24 @@ ACOUSTIC = "ukrainian_mfa"
 DICTIONARY = "ukrainian_mfa"
 
 
-def align(
-    wav: str | Path,
-    lab: str | Path,
-    out_textgrid: str | Path,
-    *,
-    conda: str = CONDA,
-    env: str = ENV,
-    acoustic: str = ACOUSTIC,
-    dictionary: str = DICTIONARY,
-    beam: int | None = None,
-) -> Path:
-    """Force-align `wav` against transcript `lab`; write the result to `out_textgrid`."""
-    wav, lab, out_textgrid = Path(wav), Path(lab), Path(out_textgrid)
-    stem = wav.stem
-
+def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acoustic,
+             dictionary, beam, single_speaker) -> Path:
     with tempfile.TemporaryDirectory() as tmp:
-        corpus = Path(tmp) / "corpus"
         aligned = Path(tmp) / "aligned"
-        corpus.mkdir(parents=True)
-        shutil.copy(wav, corpus / f"{stem}.wav")
-        shutil.copy(lab, corpus / f"{stem}.lab")
-
         cmd = [
             conda, "run", "--no-capture-output", "-n", env,
             "mfa", "align",
             str(corpus), dictionary, acoustic, str(aligned),
-            "--clean", "--single_speaker", "--use_mp", "false",
+            "--clean", "--use_mp", "false",
         ]
+        if single_speaker:
+            cmd.append("--single_speaker")
         if beam is not None:
             cmd += ["--beam", str(beam), "--retry_beam", str(beam * 4)]
         subprocess.run(cmd, check=True)
 
         produced = aligned / f"{stem}.TextGrid"
         if not produced.exists():
-            # MFA may nest by speaker; search for it.
             matches = list(aligned.rglob(f"{stem}.TextGrid")) or list(aligned.rglob("*.TextGrid"))
             if not matches:
                 raise FileNotFoundError(f"MFA produced no TextGrid in {aligned}")
@@ -60,3 +46,31 @@ def align(
         out_textgrid.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(produced, out_textgrid)
     return out_textgrid
+
+
+def align(wav, lab, out_textgrid, *, conda=CONDA, env=ENV, acoustic=ACOUSTIC,
+          dictionary=DICTIONARY, beam=None) -> Path:
+    """Force-align `wav` against a single-utterance `.lab` transcript."""
+    wav, lab, out_textgrid = Path(wav), Path(lab), Path(out_textgrid)
+    stem = wav.stem
+    with tempfile.TemporaryDirectory() as tmp:
+        corpus = Path(tmp) / "corpus"
+        corpus.mkdir(parents=True)
+        shutil.copy(wav, corpus / f"{stem}.wav")
+        shutil.copy(lab, corpus / f"{stem}.lab")
+        return _run_mfa(corpus, stem, out_textgrid, conda=conda, env=env, acoustic=acoustic,
+                        dictionary=dictionary, beam=beam, single_speaker=True)
+
+
+def align_segments(wav, input_textgrid, out_textgrid, *, conda=CONDA, env=ENV,
+                   acoustic=ACOUSTIC, dictionary=DICTIONARY, beam=None) -> Path:
+    """Force-align `wav` using an input TextGrid that segments it into utterances."""
+    wav, input_textgrid, out_textgrid = Path(wav), Path(input_textgrid), Path(out_textgrid)
+    stem = wav.stem
+    with tempfile.TemporaryDirectory() as tmp:
+        corpus = Path(tmp) / "corpus"
+        corpus.mkdir(parents=True)
+        shutil.copy(wav, corpus / f"{stem}.wav")
+        shutil.copy(input_textgrid, corpus / f"{stem}.TextGrid")
+        return _run_mfa(corpus, stem, out_textgrid, conda=conda, env=env, acoustic=acoustic,
+                        dictionary=dictionary, beam=beam, single_speaker=True)

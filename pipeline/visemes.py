@@ -205,10 +205,22 @@ def textgrid_to_spans(
     phone_tier: str = "phones",
 ) -> tuple[list[Span], VisemeMapper]:
     tiers = parse_textgrid(textgrid_path)
-    if phone_tier not in tiers:
+    name = _find_phone_tier(tiers, phone_tier)
+    if name is None:
         raise ValueError(
             f"No '{phone_tier}' tier in {textgrid_path}. Tiers found: {list(tiers)}"
         )
     mapper = VisemeMapper(mapping_path)
-    spans = build_spans(tiers[phone_tier], mapper, fps, min_hold)
+    spans = build_spans(tiers[name], mapper, fps, min_hold)
     return spans, mapper
+
+
+def _find_phone_tier(tiers: dict[str, list[Interval]], phone_tier: str) -> str | None:
+    """Locate the phones tier, tolerating MFA's 'speaker - phones' naming."""
+    if phone_tier in tiers:
+        return phone_tier
+    for name in tiers:
+        low = name.lower()
+        if low == phone_tier or low.endswith(f"- {phone_tier}") or low.endswith(phone_tier):
+            return name
+    return None
