@@ -130,15 +130,23 @@ def build_spans(
     fps: float,
     min_hold: int = 2,
 ) -> list[Span]:
-    """Map phone intervals to shapes, snap boundaries to frames, merge runs, de-flicker.
+    """Map phone intervals to shapes, de-flicker, snap to frames, enforce contiguity.
 
-    - Each phone -> shape; consecutive equal shapes merge.
-    - Boundaries snap to whole frames (round). Zero-length snapped spans are dropped.
-    - Spans shorter than `min_hold` frames are absorbed into the previous span (or the next
-      one at the very start) to prevent single-frame flicker.
+    Key change: De-flicker in seconds domain BEFORE snapping to frames.
+    This avoids losing legitimate brief events to rounding artifacts.
+
+    Steps:
+    - Each phone -> shape; consecutive equal shapes merge (seconds)
+    - De-flicker: remove spans < min_hold_s seconds (prevents noise)
+    - Re-merge consecutive equals after de-flicker
+    - Snap to whole frames (round)
+    - Enforce contiguity (each span's end = next span's start)
+    - Filter any remaining zero-duration spans
     """
     if not phones:
         return []
+
+    min_hold_s = min_hold / fps  # Convert frame threshold to seconds
 
     # 1. shape per interval, in seconds
     raw = [(iv.xmin, iv.xmax, mapper.shape_for(iv.text)) for iv in phones]
@@ -151,20 +159,74 @@ def build_spans(
         else:
             merged.append([start, end, shape])
 
-    # 3. snap to frames, contiguous (each span ends where the next begins)
+    # 3. de-flicker in seconds domain (before snapping)
+    # Remove spans shorter than min_hold_s; this prevents losing legitimate brief events
+    # that only become problematic after rounding to frames.
+    merged = _smooth_seconds(merged, min_hold_s)
+
+    # 4. re-merge consecutive equals (de-flicker may have made neighbors identical)
+    merged = _merge_seconds_equal(merged)
+
+    # 5. snap to frames, contiguous
     spans: list[Span] = []
-    for i, (start, end, shape) in enumerate(merged):
+    for start, end, shape in merged:
         start_f = round(start * fps)
-        end_f = round(end * fps) if i + 1 < len(merged) else round(end * fps)
+        end_f = round(end * fps)
         spans.append(Span(start_f, end_f, shape))
-    # enforce contiguity & monotonicity
+
+    # enforce contiguity & monotonicity (each span's end = next span's start)
     for i in range(len(spans) - 1):
         spans[i].end_f = spans[i + 1].start_f
-    spans = [s for s in spans if s.duration > 0]
 
-    # 4. de-flicker: absorb sub-min_hold spans into a neighbour, then re-merge equals
-    spans = _smooth(spans, min_hold)
+    spans = [s for s in spans if s.duration > 0]
     return spans
+
+
+def _smooth_seconds(merged: list[list], min_hold_s: float) -> list[list]:
+    """Remove brief spans in seconds domain before snapping to frames.
+
+    Args:
+        merged: List of [start_s, end_s, shape] tuples
+        min_hold_s: Minimum duration in seconds (e.g., 2/30 ≈ 0.067s for 2 frames)
+
+    Removes spans < min_hold_s by absorbing them into neighbors, avoiding the problem
+    of losing legitimate brief events to rounding artifacts during frame snapping.
+    """
+    if min_hold_s <= 0 or len(merged) <= 1:
+        return merged
+
+    changed = True
+    while changed and len(merged) > 1:
+        changed = False
+        for i, (start, end, shape) in enumerate(merged):
+            duration = end - start
+            if duration >= min_hold_s:
+                continue
+            # Span is too brief, absorb it into a neighbor
+            if i > 0:
+                # Extend previous span to cover this one (previous keeps its shape)
+                merged[i - 1][1] = end
+            else:
+                # First span: move next span's start earlier to cover this one
+                merged[i + 1][0] = start
+            del merged[i]
+            changed = True
+            break
+    return merged
+
+
+def _merge_seconds_equal(merged: list[list]) -> list[list]:
+    """Merge consecutive spans with identical shapes (seconds domain).
+
+    Called after de-flicker to clean up adjacent spans that now have the same shape.
+    """
+    out: list[list] = []
+    for start, end, shape in merged:
+        if out and out[-1][2] == shape:
+            out[-1][1] = end
+        else:
+            out.append([start, end, shape])
+    return out
 
 
 def _smooth(spans: list[Span], min_hold: int) -> list[Span]:
