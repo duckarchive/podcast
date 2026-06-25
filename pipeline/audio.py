@@ -54,3 +54,28 @@ def to_wav16k(src: str | Path, dst: str | Path) -> Path:
         check=True,
     )
     return dst
+
+
+# Cleanup filter chain: pre-gain, de-click transients, gently denoise, tame sibilance, normalize.
+#   volume=1.2             +20% gain up front so quieter noise sits above the filter thresholds
+#   adeclick=t=6           remove clicks/crackle (6 ms threshold window)
+#   afftdn=nr=6            FFT denoise, very low (6 dB reduction; ffmpeg default is 12)
+#   deesser=i=0.2:m=0.2:f=0.5   reduce harsh "s"/"sh" sibilance
+#   loudnorm=I=-16:LRA=11:TP=-1.5   EBU R128 loudness norm (podcast target; resets final level)
+_ENHANCE_FILTER = "volume=1.2,adeclick=t=6,afftdn=nr=6,deesser=i=0.2:m=0.2:f=0.5,loudnorm=I=-16:LRA=11:TP=-1.5"
+
+
+def enhance(src: str | Path, dst: str | Path) -> Path:
+    """Clean + loudness-normalize `src` to a 44.1 kHz PCM WAV at `dst`.
+
+    Applies de-click, de-ess, and EBU R128 loudness normalization — suitable for
+    listenable podcast output (separate from the 16 kHz mono WAV used for alignment).
+    """
+    src, dst = Path(src), Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(src),
+         "-af", _ENHANCE_FILTER, "-ar", "44100", "-c:a", "pcm_s16le", str(dst)],
+        check=True,
+    )
+    return dst
