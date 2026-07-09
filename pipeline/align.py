@@ -10,15 +10,32 @@ can run under any Python. Two corpus shapes are supported:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
-CONDA = "/opt/homebrew/Caskroom/miniforge/base/bin/conda"
 ENV = "aligner"
 ACOUSTIC = "ukrainian_mfa"
 DICTIONARY = "ukrainian_mfa"
+
+
+def _resolve_conda(conda: str | None) -> str:
+    """Locate conda: explicit arg > $CONDA_EXE > PATH > known miniforge installs."""
+    candidates = [
+        conda,
+        os.environ.get("CONDA_EXE"),
+        shutil.which("conda"),
+        str(Path.home() / "miniforge" / "bin" / "conda"),
+        "/opt/homebrew/Caskroom/miniforge/base/bin/conda",
+    ]
+    for c in candidates:
+        if c and Path(c).is_file():
+            return c
+    raise FileNotFoundError(
+        "conda not found — install miniforge (see README) or set CONDA_EXE=/path/to/conda"
+    )
 
 
 def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acoustic,
@@ -26,7 +43,7 @@ def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acousti
     with tempfile.TemporaryDirectory() as tmp:
         aligned = Path(tmp) / "aligned"
         cmd = [
-            conda, "run", "--no-capture-output", "-n", env,
+            _resolve_conda(conda), "run", "--no-capture-output", "-n", env,
             "mfa", "align",
             str(corpus), dictionary, acoustic, str(aligned),
             "--clean", "--use_mp", "false",
@@ -48,7 +65,7 @@ def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acousti
     return out_textgrid
 
 
-def align(wav, lab, out_textgrid, *, conda=CONDA, env=ENV, acoustic=ACOUSTIC,
+def align(wav, lab, out_textgrid, *, conda=None, env=ENV, acoustic=ACOUSTIC,
           dictionary=DICTIONARY, beam=None) -> Path:
     """Force-align `wav` against a single-utterance `.lab` transcript."""
     wav, lab, out_textgrid = Path(wav), Path(lab), Path(out_textgrid)
@@ -62,7 +79,7 @@ def align(wav, lab, out_textgrid, *, conda=CONDA, env=ENV, acoustic=ACOUSTIC,
                         dictionary=dictionary, beam=beam, single_speaker=True)
 
 
-def align_segments(wav, input_textgrid, out_textgrid, *, conda=CONDA, env=ENV,
+def align_segments(wav, input_textgrid, out_textgrid, *, conda=None, env=ENV,
                    acoustic=ACOUSTIC, dictionary=DICTIONARY, beam=None) -> Path:
     """Force-align `wav` using an input TextGrid that segments it into utterances."""
     wav, input_textgrid, out_textgrid = Path(wav), Path(input_textgrid), Path(out_textgrid)

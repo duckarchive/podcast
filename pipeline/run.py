@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""End-to-end: Ukrainian WAV -> DaVinci Resolve viseme timeline (FCP7 xmeml).
+"""End-to-end: Ukrainian audio/video -> DaVinci Resolve viseme timeline (FCP7 xmeml).
 
-    python -m pipeline.run sample.wav -c config.json -o sample.xml
+    python -m pipeline.run                      # everything in input/
+    python -m pipeline.run input/episode.mkv    # one file
+
+Inputs may be audio (wav/mp3/mka/…) or video containers (mkv/mp4/…). Audio files are
+processed directly; for videos each audio track is extracted to its own 16 kHz mono WAV
+and run through the pipeline separately (track N -> <stem>.aN.xml).
 
 Stages: Whisper transcript -> MFA align -> phone->shape mapping -> xmeml. Intermediate
 artifacts (.lab, .TextGrid, .visemes.tsv) are written next to the output for inspection and
@@ -12,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,38 +26,122 @@ from .resolve_xml import build_xmeml
 from .visemes import textgrid_to_spans
 
 
+def _expand_inputs(paths: list[Path]) -> list[Path]:
+    """Flatten files/folders into a file list (folders: non-hidden files, sorted)."""
+    files: list[Path] = []
+    for p in paths:
+        if p.is_dir():
+            files += sorted(f for f in p.iterdir() if f.is_file() and not f.name.startswith("."))
+        elif p.exists():
+            files.append(p)
+        else:
+            print(f"[skip] not found: {p}", file=sys.stderr)
+    return files
+
+
+def _build_jobs(files: list[Path], track_arg: str) -> list[tuple[Path, int | str, str]]:
+    """One (src, track, stem) pipeline job per audio track to process.
+
+    Single-track files (typical audio) yield one job under the file's own stem.
+    Multi-track files (2-track OBS MKV, mka…) fan out one job per track as <stem>.aN,
+    unless `track_arg` pins a specific track or "mix".
+    """
+    jobs: list[tuple[Path, int | str, str]] = []
+    seen: set[str] = set()
+    for f in files:
+        try:
+            tracks = audio.audio_tracks(f)
+        except subprocess.CalledProcessError:
+            print(f"[skip] unreadable media: {f}", file=sys.stderr)
+            continue
+        if not tracks:
+            print(f"[skip] no audio streams: {f}", file=sys.stderr)
+            continue
+        if len(tracks) > 1:
+            desc = ", ".join(f"a:{t['index']} ({t['title'] or t['codec']}, {t['channels']}ch)" for t in tracks)
+            print(f"[scan] {f.name}: {len(tracks)} audio tracks — {desc}")
+        if track_arg != "each":
+            pairs = [(track_arg, "{base}")]
+        elif len(tracks) == 1:
+            pairs = [("mix", "{base}")]
+        else:
+            pairs = [(t["index"], f"{{base}}.a{t['index']}") for t in tracks]
+        base = f.stem
+        if any(tpl.format(base=base) in seen for _, tpl in pairs):
+            base = f.name  # stem collision (foo.mkv + foo.mp4): qualify outputs with the extension
+        for trk, tpl in pairs:
+            stem = tpl.format(base=base)
+            seen.add(stem)
+            jobs.append((f, trk, stem))
+    return jobs
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("wav", help="Input audio (any format; converted to 16 kHz mono internally)")
+    p.add_argument("inputs", nargs="*", default=["input"],
+                   help="Media file(s) and/or folder(s) (default: input/)")
     p.add_argument("-c", "--config", default="config.json", help="Config JSON (fps/size/image map)")
     p.add_argument("-m", "--mapping", default="pipeline/mapping_uk.json", help="IPA->shape JSON")
-    p.add_argument("-o", "--output", help="Output xmeml (default: <outdir>/<wav>.xml)")
+    p.add_argument("-o", "--output", help="Output xmeml (default: <outdir>/<stem>.xml; single job only)")
     p.add_argument("--outdir", default="output", help="Directory for outputs + intermediates")
     p.add_argument("--min-hold", type=int, default=2, help="Min frames a mouth shape is held (de-flicker)")
     p.add_argument("--audio", action="store_true", help="Embed the source audio as an audio track")
-    p.add_argument("--textgrid", help="Use this aligned TextGrid instead of running Whisper+MFA")
+    p.add_argument("--track", default="each",
+                   help='Multi-track handling: "each" runs the pipeline per track (default), '
+                        '"mix" mixes all tracks into one, or a 0-based track index')
+    p.add_argument("--textgrid", help="Use this aligned TextGrid instead of running Whisper+MFA (single job only)")
     p.add_argument("--model", default=transcribe.DEFAULT_MODEL, help="Whisper ggml model path")
     p.add_argument("--lang", default="uk", help="Transcription language code")
     args = p.parse_args(argv)
+    if args.track not in ("each", "mix"):
+        try:
+            args.track = int(args.track)
+        except ValueError:
+            p.error(f'--track must be "each", "mix", or a 0-based track index (got {args.track!r})')
 
-    src = Path(args.wav)
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    stem = src.stem
-    out = Path(args.output) if args.output else outdir / f"{stem}.xml"
     cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
+
+    files = _expand_inputs([Path(i) for i in args.inputs])
+    jobs = _build_jobs(files, args.track)
+    if not jobs:
+        print("nothing to process", file=sys.stderr)
+        return 1
+    if (args.output or args.textgrid) and len(jobs) != 1:
+        p.error(f"-o/--textgrid apply to a single pipeline run, but {len(jobs)} were queued "
+                "(pass one single-track file, or pin --track)")
+
+    failed: list[str] = []
+    for i, (src, track, stem) in enumerate(jobs, 1):
+        label = src.name + (f" [a:{track}]" if isinstance(track, int) else "")
+        if len(jobs) > 1:
+            print(f"\n=== [{i}/{len(jobs)}] {label} ===")
+        try:
+            _process(src, track, stem, args, cfg, outdir)
+        except Exception as e:
+            failed.append(label)
+            print(f"[fail] {label}: {e}", file=sys.stderr)
+    if failed:
+        print(f"\n{len(failed)}/{len(jobs)} failed: {', '.join(failed)}", file=sys.stderr)
+    return 1 if failed else 0
+
+
+def _process(src: Path, track: int | str, stem: str, args, cfg: dict, outdir: Path) -> None:
+    """Run one audio track through transcript -> alignment -> visemes -> xmeml."""
     fps = cfg.get("fps", 30)
     ntsc = bool(cfg.get("ntsc", False))
     image_for_shape = cfg["phonemes"]
+    out = Path(args.output) if args.output else outdir / f"{stem}.xml"
 
-    # 1-2. transcript + alignment (skippable via --lab/--textgrid)
+    # 1-2. transcript + alignment (skippable via --textgrid)
     wav = None  # the 16 kHz mono working WAV (set when not skipping alignment)
     if args.textgrid:
         textgrid = Path(args.textgrid)
         print(f"[skip] using existing TextGrid: {textgrid}")
     else:
         print("[0/4] preprocessing audio -> 16 kHz mono WAV…")
-        wav = audio.to_wav16k(src, outdir / f"{stem}.16k.wav")
+        wav = audio.to_wav16k(src, outdir / f"{stem}.16k.wav", track=track)
         duration = audio.duration(wav)
         print(f"      audio -> {wav}  ({duration:.1f}s)")
 
@@ -85,7 +175,6 @@ def main(argv=None) -> int:
     )
     out.write_text(xml, encoding="utf-8")
     print(f"Done -> {out}  (import in Resolve: File > Import > Timeline)")
-    return 0
 
 
 def _dump_tsv(spans, fps, path: Path) -> None:

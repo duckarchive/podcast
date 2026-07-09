@@ -42,19 +42,25 @@ The pipeline itself is pure Python stdlib (no `pip install` needed); it shells o
 Put source media in `input/`; all generated files land in `output/`.
 
 ```bash
-# 0. (if starting from video) extract 16 kHz mono WAV
-ffmpeg -i input/sample.mp4 -vn -ac 1 -ar 16000 -c:a pcm_s16le input/sample.wav
+# 1. full pipeline: everything in input/ -> timeline XML(s) in output/
+python3 -m pipeline.run
 
-# 1. full pipeline: WAV -> timeline XML (writes to output/)
-python3 -m pipeline.run input/sample.wav
+#    Audio files (wav/mp3/mka/…) are processed directly. For videos (mkv/mp4/…) every
+#    audio track is extracted to its own 16 kHz mono WAV and processed separately:
+#      input/episode.mkv (2 tracks) -> output/episode.a0.xml + output/episode.a1.xml
+#    Non-media files in input/ are skipped.
+
+#    a single file (or several) also works:
+python3 -m pipeline.run input/episode.mkv
 
 #    options:
-#      -o FILE          output xmeml path (default: output/<wav>.xml)
+#      -o FILE          output xmeml path (single run only; default: output/<stem>.xml)
 #      --outdir DIR     output directory (default: output)
 #      --audio          embed the source WAV as an audio track (sync reference)
 #      --min-hold N     min frames a shape is held, de-flicker (default 2)
-#      --lab FILE       reuse an existing transcript (skip Whisper)
-#      --textgrid FILE  reuse an existing alignment (skip Whisper+MFA)
+#      --track MODE     multi-track handling: "each" = one pipeline run per track
+#                       (default), "mix" = mix all tracks into one, N = 0-based index
+#      --textgrid FILE  reuse an existing alignment (skip Whisper+MFA; single run only)
 
 # 2. (optional) render a sync-check preview before importing
 python3 -m pipeline.preview input/sample.wav --video input/sample.mp4
@@ -64,6 +70,10 @@ python3 -m pipeline.preview input/sample.wav --video input/sample.mp4
 
 Intermediate artifacts also land in `output/`: `<wav>.lab` (transcript),
 `<wav>.TextGrid` (alignment), `<wav>.visemes.tsv` (the frame-by-frame shape list).
+
+For a two-track recording where each track is one speaker, the default `--track each`
+already yields a separate viseme timeline per mouth (`<stem>.a0.xml`, `<stem>.a1.xml`);
+use `--track mix` if the tracks are the same voice (e.g. mic + desktop audio).
 
 ## Configuration
 

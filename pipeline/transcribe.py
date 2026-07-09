@@ -8,7 +8,9 @@ Metal-accelerated inference on Apple Silicon with no Python dependency.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -16,12 +18,30 @@ from pathlib import Path
 DEFAULT_MODEL = "models/ggml-large-v3-turbo.bin"
 
 
+def _resolve_cli(whisper_cli: str | None) -> str:
+    """Locate the whisper-cli binary: explicit arg > $WHISPER_CLI > PATH > known install."""
+    cli = whisper_cli or os.environ.get("WHISPER_CLI") or "whisper-cli"
+    found = (
+        (cli if Path(cli).is_file() else None)
+        or shutil.which(cli)
+        or next((str(p) for p in [Path.home() / ".local/src/whisper.cpp/build/bin/whisper-cli"]
+                 if p.is_file()), None)
+    )
+    if not found:
+        raise FileNotFoundError(
+            f"whisper-cli not found ({cli!r}). Install whisper.cpp and either add "
+            "whisper-cli to PATH or set WHISPER_CLI=/path/to/whisper-cli "
+            "(see setup_env.sh)."
+        )
+    return found
+
+
 def transcribe_segments(
     wav: str | Path,
     *,
     model: str | Path = DEFAULT_MODEL,
     language: str = "uk",
-    whisper_cli: str = "whisper-cli",
+    whisper_cli: str | None = None,
     threads: int | None = None,
 ) -> list[dict]:
     """Transcribe `wav` and return timestamped segments [{start, end, text}] (seconds).
@@ -32,10 +52,11 @@ def transcribe_segments(
     wav, model = Path(wav), Path(model)
     if not model.exists():
         raise FileNotFoundError(f"Whisper model not found: {model}")
+    cli = _resolve_cli(whisper_cli)
     with tempfile.TemporaryDirectory() as tmp:
         of = Path(tmp) / "out"
         cmd = [
-            whisper_cli, "-m", str(model), "-f", str(wav),
+            cli, "-m", str(model), "-f", str(wav),
             "-l", language, "-oj", "-of", str(of),
         ]
         if threads:
@@ -61,7 +82,7 @@ def transcribe(
     *,
     model: str | Path = DEFAULT_MODEL,
     language: str = "uk",
-    whisper_cli: str = "whisper-cli",
+    whisper_cli: str | None = None,
 ) -> Path:
     """Transcribe `wav` and write the cleaned transcript to `out_lab` (default: wav with .lab)."""
     wav = Path(wav)
@@ -70,10 +91,11 @@ def transcribe(
     if not model.exists():
         raise FileNotFoundError(f"Whisper model not found: {model}")
 
+    cli = _resolve_cli(whisper_cli)
     with tempfile.TemporaryDirectory() as tmp:
         of = Path(tmp) / "out"
         cmd = [
-            whisper_cli,
+            cli,
             "-m", str(model),
             "-f", str(wav),
             "-l", language,

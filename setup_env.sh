@@ -4,11 +4,11 @@
 
 export MINIFORGE_HOME="$HOME/miniforge"
 export PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export WHISPER_CLI="/tmp/whisper.cpp/build/bin/whisper-cli"
+export WHISPER_CLI="$HOME/.local/src/whisper.cpp/build/bin/whisper-cli"
 export WHISPER_MODEL="$PROJECT_ROOT/models/ggml-large-v3-turbo.bin"
 
-# Add whisper-cli to PATH
-export PATH="$WHISPER_CLI:$PATH"
+# Add whisper-cli's directory to PATH
+export PATH="$(dirname "$WHISPER_CLI"):$PATH"
 
 # Initialize conda (only for this session/terminal)
 if [ -f "$MINIFORGE_HOME/etc/profile.d/conda.sh" ]; then

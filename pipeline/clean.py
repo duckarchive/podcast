@@ -24,6 +24,9 @@ def main(argv=None) -> int:
     p.add_argument("inputs", nargs="+", help="Input audio file(s), any format")
     p.add_argument("-o", "--output",
                    help="Output file (single input) or directory (default: output/)")
+    p.add_argument("--track", default="mix",
+                   help='Audio track for multi-track inputs (e.g. 2-track OBS MKV): '
+                        '0-based index, or "mix" to mix all tracks (default)')
     args = p.parse_args(argv)
 
     inputs = [Path(i) for i in args.inputs]
@@ -39,7 +42,7 @@ def main(argv=None) -> int:
             continue
         dst = out_arg if single_file_dst else outdir / f"{src.stem}.clean.wav"
         print(f"[clean] {src} -> {dst}")
-        audio.enhance(src, dst)
+        audio.enhance(src, dst, track=args.track)
     return 0
 
 
