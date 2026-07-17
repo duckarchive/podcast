@@ -38,15 +38,18 @@ def render(
     fps: float,
     out: Path,
     video: Path | None,
+    audio: Path | None,
     width: int,
     height: int,
     scale: float,
     pos: str,
+    limit_s: float | None = None,
 ) -> Path:
     with tempfile.TemporaryDirectory() as tmp:
         concat = Path(tmp) / "mouths.txt"
         _concat_file(spans, image_for_shape, fps, concat)
         mw = int(408 * scale)
+        trim = ["-t", f"{limit_s:.4f}"] if limit_s is not None else []
         if video is not None:
             # overlay mouths onto the source video, keep its audio
             x, y = _pos_expr(pos)
@@ -56,20 +59,23 @@ def render(
                 "-i", str(video),
                 "-f", "concat", "-safe", "0", "-i", str(concat),
                 "-filter_complex", fc, "-map", "[v]", "-map", "0:a?",
-                "-c:a", "aac", "-shortest", str(out),
+                "-c:a", "aac", "-shortest", *trim, str(out),
             ]
         else:
             # render mouths over a solid background (no source video)
             x, y = _pos_expr(pos)
-            total_s = spans[-1].end_f / fps  # bound the (otherwise infinite) color source
+            total_s = min(spans[-1].end_f / fps, limit_s) if limit_s is not None else spans[-1].end_f / fps
             cmd = [
                 "ffmpeg", "-y", "-v", "error",
                 "-f", "lavfi", "-i", f"color=c=gray:s={width}x{height}:r={fps}:d={total_s:.4f}",
                 "-f", "concat", "-safe", "0", "-i", str(concat),
-                "-filter_complex",
-                f"[1:v]fps={fps},scale={mw}:-1[m];[0:v][m]overlay={x}:{y}:format=auto[v]",
-                "-map", "[v]", "-t", f"{total_s:.4f}", str(out),
             ]
+            fc = f"[1:v]fps={fps},scale={mw}:-1[m];[0:v][m]overlay={x}:{y}:format=auto[v]"
+            if audio is not None:
+                cmd += ["-i", str(audio), "-filter_complex", fc,
+                        "-map", "[v]", "-map", "2:a", "-c:a", "aac", "-shortest", "-t", f"{total_s:.4f}", str(out)]
+            else:
+                cmd += ["-filter_complex", fc, "-map", "[v]", "-t", f"{total_s:.4f}", str(out)]
         subprocess.run(cmd, check=True)
     return out
 
@@ -93,6 +99,7 @@ def main(argv=None) -> int:
     p.add_argument("--min-hold", type=int, default=2)
     p.add_argument("--scale", type=float, default=1.0, help="Mouth scale factor")
     p.add_argument("--pos", default="bottom", choices=["center", "bottom", "top"])
+    p.add_argument("--limit", type=float, help="Cap the preview to this many seconds (e.g. 300 for 5 min)")
     args = p.parse_args(argv)
 
     wav = Path(args.wav)
@@ -103,8 +110,9 @@ def main(argv=None) -> int:
     out = render(
         spans, cfg["phonemes"], fps=fps, out=Path(args.output),
         video=Path(args.video) if args.video else None,
+        audio=wav,
         width=cfg.get("width", 1920), height=cfg.get("height", 1080),
-        scale=args.scale, pos=args.pos,
+        scale=args.scale, pos=args.pos, limit_s=args.limit,
     )
     print(f"Preview -> {out}")
     return 0
