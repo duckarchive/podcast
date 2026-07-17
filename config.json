@@ -1,4 +1,8 @@
 {
+  "sources": {
+    "mkv": {"track": 1, "name": "alex"},
+    "mp4": {"name": "vitalii"}
+  },
   "fps": 30,
   "width": 1920,
   "height": 1080,

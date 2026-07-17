@@ -39,12 +39,18 @@ def _expand_inputs(paths: list[Path]) -> list[Path]:
     return files
 
 
-def _build_jobs(files: list[Path], track_arg: str) -> list[tuple[Path, int | str, str]]:
+def _build_jobs(
+    files: list[Path], track_arg: int | str | None, rules: dict | None = None
+) -> list[tuple[Path, int | str, str]]:
     """One (src, track, stem) pipeline job per audio track to process.
 
     Single-track files (typical audio) yield one job under the file's own stem.
-    Multi-track files (2-track OBS MKV, mka…) fan out one job per track as <stem>.aN,
-    unless `track_arg` pins a specific track or "mix".
+    Multi-track files (2-track OBS MKV, mka…) fan out one job per track as <stem>.aN.
+
+    `rules` (config.json "sources") sets per-extension defaults, e.g.
+    {"mkv": {"track": 1, "name": "alex"}} pins the track and renames the outputs.
+    An explicit `track_arg` (from --track) overrides rule tracks; None means
+    "rule track if any, else each".
     """
     jobs: list[tuple[Path, int | str, str]] = []
     seen: set[str] = set()
@@ -60,13 +66,15 @@ def _build_jobs(files: list[Path], track_arg: str) -> list[tuple[Path, int | str
         if len(tracks) > 1:
             desc = ", ".join(f"a:{t['index']} ({t['title'] or t['codec']}, {t['channels']}ch)" for t in tracks)
             print(f"[scan] {f.name}: {len(tracks)} audio tracks — {desc}")
-        if track_arg != "each":
-            pairs = [(track_arg, "{base}")]
+        rule = (rules or {}).get(f.suffix.lower().lstrip("."), {})
+        track = track_arg if track_arg is not None else rule.get("track", "each")
+        if track != "each":
+            pairs = [(track, "{base}")]
         elif len(tracks) == 1:
             pairs = [("mix", "{base}")]
         else:
             pairs = [(t["index"], f"{{base}}.a{t['index']}") for t in tracks]
-        base = f.stem
+        base = rule.get("name") or f.stem
         if any(tpl.format(base=base) in seen for _, tpl in pairs):
             base = f.name  # stem collision (foo.mkv + foo.mp4): qualify outputs with the extension
         for trk, tpl in pairs:
@@ -86,14 +94,15 @@ def main(argv=None) -> int:
     p.add_argument("--outdir", default="output", help="Directory for outputs + intermediates")
     p.add_argument("--min-hold", type=int, default=2, help="Min frames a mouth shape is held (de-flicker)")
     p.add_argument("--audio", action="store_true", help="Embed the source audio as an audio track")
-    p.add_argument("--track", default="each",
-                   help='Multi-track handling: "each" runs the pipeline per track (default), '
-                        '"mix" mixes all tracks into one, or a 0-based track index')
+    p.add_argument("--track", default=None,
+                   help='Multi-track handling: "each" runs the pipeline per track, "mix" mixes '
+                        'all tracks into one, or a 0-based track index. Default: the config\'s '
+                        'per-extension "sources" rule if any, else "each". Overrides rules.')
     p.add_argument("--textgrid", help="Use this aligned TextGrid instead of running Whisper+MFA (single job only)")
     p.add_argument("--model", default=transcribe.DEFAULT_MODEL, help="Whisper ggml model path")
     p.add_argument("--lang", default="uk", help="Transcription language code")
     args = p.parse_args(argv)
-    if args.track not in ("each", "mix"):
+    if args.track is not None and args.track not in ("each", "mix"):
         try:
             args.track = int(args.track)
         except ValueError:
@@ -104,7 +113,7 @@ def main(argv=None) -> int:
     cfg = json.loads(Path(args.config).read_text(encoding="utf-8"))
 
     files = _expand_inputs([Path(i) for i in args.inputs])
-    jobs = _build_jobs(files, args.track)
+    jobs = _build_jobs(files, args.track, cfg.get("sources"))
     if not jobs:
         print("nothing to process", file=sys.stderr)
         return 1

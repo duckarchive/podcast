@@ -62,10 +62,15 @@ python3 -m pipeline.run input/episode.mkv
 #                       (default), "mix" = mix all tracks into one, N = 0-based index
 #      --textgrid FILE  reuse an existing alignment (skip Whisper+MFA; single run only)
 
-# 2. (optional) render a sync-check preview before importing
+# 2. (optional) audio-only: extract + clean tracks for listening (no whisper/MFA)
+#    same input handling as pipeline.run; -> output/<stem>[.aN].clean.wav
+python3 -m pipeline.clean
+python3 -m pipeline.clean input/episode.mkv --track 1
+
+# 3. (optional) render a sync-check preview before importing
 python3 -m pipeline.preview input/sample.wav --video input/sample.mp4
 
-# 3. in DaVinci Resolve:  File > Import > Timeline…  ->  output/sample.xml
+# 4. in DaVinci Resolve:  File > Import > Timeline…  ->  output/sample.xml
 ```
 
 Intermediate artifacts also land in `output/`: `<wav>.lab` (transcript),
@@ -79,6 +84,10 @@ use `--track mix` if the tracks are the same voice (e.g. mic + desktop audio).
 
 - `config.json` — timeline `fps` (30), `width`/`height`, and `phonemes`: the shape→PNG map.
   Set `"ntsc": true` for 29.97/23.976.
+  `"sources"` sets per-extension input defaults for `pipeline.run` / `pipeline.clean`:
+  `{"mkv": {"track": 1, "name": "alex"}, "mp4": {"name": "vitalii"}}` means MKVs use
+  audio track a:1 with outputs named `alex.*`, MP4s keep their default track handling
+  with outputs named `vitalii.*`. An explicit `--track` overrides the rule's track.
 - `pipeline/mapping_uk.json` — IPA phone → mouth shape. Tunable. Phones are normalized
   (length `ː`, palatalization `ʲ`, dental/tie-bar diacritics stripped) before lookup, so
   `bʲ`, `bː`, `b` all resolve via base `b`.
@@ -99,6 +108,7 @@ pipeline/
   run.py            orchestrator / CLI
   transcribe.py     whisper.cpp wrapper        (WAV  -> .lab)
   align.py          MFA wrapper (conda run)    (WAV+.lab -> .TextGrid)
+  clean.py          audio-only extract + de-click/de-ess/loudnorm (listening render)
   visemes.py        TextGrid parse + IPA→shape + frame-snap + de-flicker
   mapping_uk.json   IPA phone → mouth shape
   resolve_xml.py    spans -> FCP7 xmeml
