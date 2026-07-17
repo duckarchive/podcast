@@ -11,8 +11,10 @@
     "H": "L shape",
     "X": "Idle / rest (silence, pauses)"
   },
-  "silence_labels": ["", "sil", "sp", "spn", "<eps>", "silence"],
+  "_comment_spn": "spn (MFA 'spoken noise') is speech MFA couldn't align (OOV/mumbled words) — it must show a talking mouth, not rest, so it maps to the default consonant shape instead of living in silence_labels.",
+  "silence_labels": ["", "sil", "sp", "<eps>", "silence"],
   "phone_to_shape": {
+    "spn": "B",
     "b": "A", "p": "A", "m": "A",
     "f": "G", "ʋ": "G", "v": "G",
     "l": "H", "ʎ": "H",

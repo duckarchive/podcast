@@ -182,33 +182,68 @@ def build_spans(
     return spans
 
 
+# Visually salient shapes: vowels (C/D/E/F) plus the distinctive closures A (p/b/m)
+# and G (f/v). In fast speech these phones often run 30-50 ms — under min_hold — but
+# they are what makes a word readable on the mouth, so de-flicker grows them to the
+# minimum hold by taking time from neighbors instead of deleting them. Generic
+# consonant shapes (B, H) and rest (X) are absorbed into a neighbor when too brief.
+_PRIORITY_SHAPES = frozenset("ACDEFG")
+
+_EPS = 1e-9
+
+
 def _smooth_seconds(merged: list[list], min_hold_s: float) -> list[list]:
-    """Remove brief spans in seconds domain before snapping to frames.
+    """De-flicker in the seconds domain before snapping to frames.
 
     Args:
         merged: List of [start_s, end_s, shape] tuples
         min_hold_s: Minimum duration in seconds (e.g., 2/30 ≈ 0.067s for 2 frames)
 
-    Removes spans < min_hold_s by absorbing them into neighbors, avoiding the problem
-    of losing legitimate brief events to rounding artifacts during frame snapping.
+    Too-brief priority shapes (vowels/closures) are widened to min_hold_s by borrowing
+    time from their neighbors — B/H/X donate down to zero, priority neighbors only down
+    to min_hold_s. Too-brief B/H/X spans are absorbed into the longer neighbor. The old
+    absorb-into-previous strategy erased every short vowel between consonants, squashing
+    whole fast-spoken words into a single consonant shape.
     """
     if min_hold_s <= 0 or len(merged) <= 1:
         return merged
 
+    def too_short(s: list) -> bool:
+        return s[1] - s[0] < min_hold_s - _EPS
+
     changed = True
-    while changed and len(merged) > 1:
+    while changed:
+        merged = _merge_seconds_equal([s for s in merged if s[1] - s[0] > _EPS])
+        if len(merged) <= 1:
+            break
         changed = False
-        for i, (start, end, shape) in enumerate(merged):
-            duration = end - start
-            if duration >= min_hold_s:
+        for i, span in enumerate(merged):
+            if not too_short(span):
                 continue
-            # Span is too brief, absorb it into a neighbor
-            if i > 0:
-                # Extend previous span to cover this one (previous keeps its shape)
-                merged[i - 1][1] = end
+            neighbors = [j for j in (i - 1, i + 1) if 0 <= j < len(merged)]
+            if span[2] in _PRIORITY_SHAPES:
+                # Grow toward min_hold, borrowing from the longer neighbor first.
+                for j in sorted(neighbors, key=lambda j: merged[j][1] - merged[j][0], reverse=True):
+                    floor = min_hold_s if merged[j][2] in _PRIORITY_SHAPES else 0.0
+                    avail = max(0.0, (merged[j][1] - merged[j][0]) - floor)
+                    take = min(avail, min_hold_s - (span[1] - span[0]))
+                    if take <= _EPS:
+                        continue
+                    if j < i:
+                        merged[j][1] -= take
+                        span[0] -= take
+                    else:
+                        merged[j][0] += take
+                        span[1] += take
+                if not too_short(span):
+                    changed = True
+                    break
+            # Unfixable priority span, or a brief B/H/X: absorb into the longer neighbor.
+            j = max(neighbors, key=lambda j: merged[j][1] - merged[j][0])
+            if j < i:
+                merged[j][1] = span[1]
             else:
-                # First span: move next span's start earlier to cover this one
-                merged[i + 1][0] = start
+                merged[j][0] = span[0]
             del merged[i]
             changed = True
             break
@@ -226,36 +261,6 @@ def _merge_seconds_equal(merged: list[list]) -> list[list]:
             out[-1][1] = end
         else:
             out.append([start, end, shape])
-    return out
-
-
-def _smooth(spans: list[Span], min_hold: int) -> list[Span]:
-    if min_hold <= 1 or len(spans) <= 1:
-        return _merge_equal(spans)
-    changed = True
-    while changed and len(spans) > 1:
-        changed = False
-        for i, s in enumerate(spans):
-            if s.duration >= min_hold:
-                continue
-            if i > 0:  # extend previous span over this one
-                spans[i - 1].end_f = s.end_f
-            else:  # first span: hand its frames to the next
-                spans[i + 1].start_f = s.start_f
-            del spans[i]
-            changed = True
-            break
-        spans = _merge_equal(spans)
-    return spans
-
-
-def _merge_equal(spans: list[Span]) -> list[Span]:
-    out: list[Span] = []
-    for s in spans:
-        if out and out[-1].shape == s.shape:
-            out[-1].end_f = s.end_f
-        else:
-            out.append(Span(s.start_f, s.end_f, s.shape))
     return out
 
 
