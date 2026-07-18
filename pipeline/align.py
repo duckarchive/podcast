@@ -19,6 +19,10 @@ from pathlib import Path
 ENV = "aligner"
 ACOUSTIC = "ukrainian_mfa"
 DICTIONARY = "ukrainian_mfa"
+# G2P model generating pronunciations for out-of-vocabulary words during alignment.
+# Without it MFA marks OOVs (slang, anglicisms, names) as 'spn', which the viseme
+# stage can only render as a flat default mouth. None disables.
+G2P = "ukrainian_mfa"
 
 
 def _resolve_conda(conda: str | None) -> str:
@@ -39,7 +43,7 @@ def _resolve_conda(conda: str | None) -> str:
 
 
 def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acoustic,
-             dictionary, beam, single_speaker) -> Path:
+             dictionary, beam, single_speaker, g2p) -> Path:
     with tempfile.TemporaryDirectory() as tmp:
         aligned = Path(tmp) / "aligned"
         cmd = [
@@ -48,6 +52,8 @@ def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acousti
             str(corpus), dictionary, acoustic, str(aligned),
             "--clean", "--use_mp", "false",
         ]
+        if g2p:
+            cmd += ["--g2p_model_path", g2p]
         if single_speaker:
             cmd.append("--single_speaker")
         if beam is not None:
@@ -66,7 +72,7 @@ def _run_mfa(corpus: Path, stem: str, out_textgrid: Path, *, conda, env, acousti
 
 
 def align(wav, lab, out_textgrid, *, conda=None, env=ENV, acoustic=ACOUSTIC,
-          dictionary=DICTIONARY, beam=None) -> Path:
+          dictionary=DICTIONARY, beam=None, g2p=G2P) -> Path:
     """Force-align `wav` against a single-utterance `.lab` transcript."""
     wav, lab, out_textgrid = Path(wav), Path(lab), Path(out_textgrid)
     stem = wav.stem
@@ -76,11 +82,11 @@ def align(wav, lab, out_textgrid, *, conda=None, env=ENV, acoustic=ACOUSTIC,
         shutil.copy(wav, corpus / f"{stem}.wav")
         shutil.copy(lab, corpus / f"{stem}.lab")
         return _run_mfa(corpus, stem, out_textgrid, conda=conda, env=env, acoustic=acoustic,
-                        dictionary=dictionary, beam=beam, single_speaker=True)
+                        dictionary=dictionary, beam=beam, single_speaker=True, g2p=g2p)
 
 
 def align_segments(wav, input_textgrid, out_textgrid, *, conda=None, env=ENV,
-                   acoustic=ACOUSTIC, dictionary=DICTIONARY, beam=None) -> Path:
+                   acoustic=ACOUSTIC, dictionary=DICTIONARY, beam=None, g2p=G2P) -> Path:
     """Force-align `wav` using an input TextGrid that segments it into utterances."""
     wav, input_textgrid, out_textgrid = Path(wav), Path(input_textgrid), Path(out_textgrid)
     stem = wav.stem
@@ -90,4 +96,4 @@ def align_segments(wav, input_textgrid, out_textgrid, *, conda=None, env=ENV,
         shutil.copy(wav, corpus / f"{stem}.wav")
         shutil.copy(input_textgrid, corpus / f"{stem}.TextGrid")
         return _run_mfa(corpus, stem, out_textgrid, conda=conda, env=env, acoustic=acoustic,
-                        dictionary=dictionary, beam=beam, single_speaker=True)
+                        dictionary=dictionary, beam=beam, single_speaker=True, g2p=g2p)
